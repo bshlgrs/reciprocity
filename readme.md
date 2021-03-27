@@ -2,10 +2,10 @@
 
 ## Running locally
 
-Because we're brave people, we develop against the production DB.
+Create a database with Postgres; copy-paste `create_db.sql` into it to set up the tables you need.
 
 Run the backend with
-`DB_URL={the secret DB URL} python3 app.py`
+`DB_URL={whatever} python3 app.py`
 
 And run the frontend with `npm run start`
 
