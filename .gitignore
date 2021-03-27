@@ -1,0 +1,5 @@
+reciprocity_frontend/build
+reciprocity_frontend/node_modules
+**/*.scssc
+venv
+.idea
