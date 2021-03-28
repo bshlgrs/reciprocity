@@ -11,3 +11,7 @@ And run the frontend with `npm run start`
 
 And run `ngrok http -bind-tls=true -host-header="localhost:3000" localhost:3000` to tunnel the client through a HTTPS server (required to work with the FB API).
 
+## Deploying to heroku
+
+- Install heroku and log into an account that can access the heroku app
+- Do `git push heroku main` to deploy. It builds from the Dockerfile.
