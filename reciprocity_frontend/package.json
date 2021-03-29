@@ -7,6 +7,11 @@
     "@testing-library/jest-dom": "^5.11.9",
     "@testing-library/react": "^11.2.5",
     "@testing-library/user-event": "^12.6.3",
+    "@types/facebook-js-sdk": "^3.3.2",
+    "@types/jest": "^26.0.22",
+    "@types/node": "^14.14.37",
+    "@types/react": "^17.0.3",
+    "@types/react-dom": "^17.0.3",
     "fb": "^2.0.0",
     "immutable": "^4.0.0-rc.12",
     "mdbreact": "^5.0.1",
@@ -14,6 +19,7 @@
     "react-dom": "^17.0.1",
     "react-scripts": "4.0.2",
     "sass": "^1.32.7",
+    "typescript": "^4.2.3",
     "web-vitals": "^1.1.0"
   },
   "scripts": {
