@@ -30,11 +30,14 @@ const greenStyle = {
   checked: {},
 };
 
-const disabledTheme = createMuiTheme({
+const theme = createMuiTheme({
   palette: {
     action: {
       disabledBackground: lightGreen[600],
       // disabled: 'set color of text here'
+    },
+    secondary: {
+      main: '#886B7C',
     }
   }
 });
@@ -46,7 +49,28 @@ const StyledCheckbox = withStyles(greenStyle)((props) => {
 
 });
 
-const instructionAccordion = <Accordion>
+const StyledButton = withStyles({
+  root: {
+    background: '#886B7C',
+    borderRadius: 7,
+    border: 0,
+    color: 'white',
+    height: 40,
+    padding: '0 20px',
+    '&:hover': {
+      backgroundColor: 'black',
+    },
+    '&:disabled': {
+      color: 'white',
+      backgroundColor: '#B9A1AF',
+    },
+  },
+  label: {
+    textTransform: 'capitalize',
+  },
+})(Button);
+
+const instructionAccordion = <Accordion style={{marginTop: '50px'}}>
   <AccordionSummary
       aria-controls="panel1a-content"
       id="panel1a-header"
@@ -65,8 +89,8 @@ const instructionAccordion = <Accordion>
 
     <div>
       Press
-      <Button style={{marginLeft: "0.5em"}} variant="contained">Save
-      </Button>.
+      <StyledButton style={{marginLeft: "0.5em"}} variant="contained" disableElevation>Save
+      </StyledButton>.
     </div>
 
     <div>
@@ -179,7 +203,7 @@ class App extends React.Component {
             {this.state.myInfo.name}</div>
         </div>}</div>
         <h1>reciprocity.io</h1>
-        <div style={{color: "#D2CBC7", fontWeight: '700', fontSize: "1.5em"}}>
+        <div style={{color: "#D2CBC7", fontWeight: '700', fontSize: "1.5em", paddingBottom: '50px'}}>
           what would you do, if they wanted to too?
         </div>
 
@@ -198,17 +222,20 @@ class App extends React.Component {
         <div id='main'>
           {instructionAccordion}
           {caveatAccordion}
-          <div><h3>Bio</h3>
+          <div><h3 style={{paddingTop: '30px'}}>Bio</h3>
             <div><small>e.g. 'I don't use this for dating, and I'm mostly looking for female friends'</small></div>
-            <div><TextField fullWidth multiline value={this.state.bioState || ""}
+            <ThemeProvider theme={theme}>
+            <div><TextField color="secondary" fullWidth multiline value={this.state.bioState || ""}
                             onChange={(e) => this.setState({bioState: e.target.value})}/></div>
+            </ThemeProvider>
+            
             <div style={{color: "#B6AAA2", fontSize: "0.9em"}}>{300 - (this.state.bioState || "").length} characters
               remaining
             </div>
-            <Button style={{marginTop: '2em'}} onClick={() => this.changeMyInfo({bio: this.state.bioState})}
+            <StyledButton style={{marginTop: '2em'}} onClick={() => this.changeMyInfo({bio: this.state.bioState})}
                     variant='contained'
-                    disabled={(this.state.bioState === this.state.myInfo.bio) || this.state.bioState.length > 300}>Save
-              bio</Button>
+                    disabled={(this.state.bioState === this.state.myInfo.bio) || this.state.bioState.length > 300} disableElevation>Save
+              bio</StyledButton>
           </div>
           <div>
             <FriendsListView
@@ -224,9 +251,9 @@ class App extends React.Component {
 
         </div>
         <div id='footer'>
-          <Button variant="contained" onClick={() => this.submit()}>
+          <StyledButton variant="contained" color="#886b7c" onClick={() => this.submit()} disableElevation>
             Save
-          </Button>
+          </StyledButton>
         </div>
       </div>}
     </div>

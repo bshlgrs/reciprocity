@@ -5,7 +5,7 @@
 Create a database with Postgres; copy-paste `create_db.sql` into it to set up the tables you need.
 
 Run the backend with
-`DB_URL={whatever} python3 app.py`
+`DATABASE_URL={whatever} python3 app.py`
 
 And run the frontend with `npm run start`
 
