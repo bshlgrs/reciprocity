@@ -7,6 +7,7 @@
     "@testing-library/jest-dom": "^5.11.9",
     "@testing-library/react": "^11.2.5",
     "@testing-library/user-event": "^12.6.3",
+    "concurrently": "^6.0.0",
     "fb": "^2.0.0",
     "immutable": "^4.0.0-rc.12",
     "mdbreact": "^5.0.1",
@@ -20,7 +21,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "dev": "concurrently --kill-others 'npm run start' 'python3 ../app.py' 'ngrok http --log stdout -bind-tls=true -host-header=\"localhost:3000\" localhost:3000'"
   },
   "eslintConfig": {
     "extends": [

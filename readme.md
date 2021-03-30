@@ -11,6 +11,8 @@ And run the frontend with `npm run start`
 
 And run `ngrok http -bind-tls=true -host-header="localhost:3000" localhost:3000` to tunnel the client through a HTTPS server (required to work with the FB API).
 
+For a single command to do all of this, go to the reciprocity_frontend folder and run `DATABASE_URL={whatever} npm run dev` to start all 3 processes above simultaneously.
+
 ## Deploying to heroku
 
 - Install heroku and log into an account that can access the heroku app on the heroku CLI
