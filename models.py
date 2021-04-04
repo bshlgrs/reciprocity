@@ -16,7 +16,7 @@ Base.metadata.bind = eng
 Base.metadata.create_all()
 
 Session = sessionmaker(bind=eng)
-ses = Session(autoflush=False)
+ses = Session(autoflush=False, autocommit=True)
 
 
 @dataclass
