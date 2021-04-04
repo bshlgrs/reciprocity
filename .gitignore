@@ -315,5 +315,7 @@ Thumbs.db #thumbnail cache on Windows
 # profiling data
 .prof
 
-
 # End of https://www.toptal.com/developers/gitignore/api/node,macos,linux,python
+
+.idea
+reciprocity_frontend/src/.sass-cache
