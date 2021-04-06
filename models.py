@@ -39,7 +39,7 @@ class User(Base):
         else:
             new_user = User(fb_id=my_fb_id, name=name)
             ses.add(new_user)
-            ses.commit()
+            # ses.commit()
             return new_user
 
     def get_checks(self):
@@ -71,7 +71,7 @@ class User(Base):
                 if (to_user,activity) not in my_checks_dict:
                     checks_to_create.append(Check(from_id=self.id, to_id=to_user, activity=activity))
         ses.add_all(checks_to_create)
-        ses.commit()
+        # ses.commit()
 
 
 
