@@ -57,7 +57,7 @@ def api_update_user():
         assert len(updated_info['bio']) < 300
         current_user.bio = updated_info['bio']
 
-    # ses.commit()
+    ses.commit()
     return jsonify(current_user)
 
 @app.route('/api/delete_user', methods=['POST', 'DELETE'])

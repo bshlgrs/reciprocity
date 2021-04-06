@@ -16,7 +16,7 @@ Base.metadata.bind = eng
 Base.metadata.create_all()
 
 Session = sessionmaker(bind=eng)
-ses = Session(autoflush=False, autocommit=True)
+ses = Session(autoflush=False)
 
 
 @dataclass
@@ -39,7 +39,7 @@ class User(Base):
         else:
             new_user = User(fb_id=my_fb_id, name=name)
             ses.add(new_user)
-            # ses.commit()
+            ses.commit()
             return new_user
 
     def get_checks(self):
