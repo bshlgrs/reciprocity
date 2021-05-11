@@ -1,3 +1,5 @@
+## Privacy policy
+
 When you log into reciprocity.io or interact with the app you should assume
 that we store everything you do. We also use the facebook API to get your
 photo and list of friends who use reciprocity.  The data is
@@ -12,3 +14,5 @@ if we wanted to. We promise not to.  We try to be basically sensible about secur
 but probably a sufficiently determined attacker could somehow get the data.
 
 We use cookies to keep track of the fact that you are logged in.
+
+## Terms of service
