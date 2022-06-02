@@ -1,18 +1,13 @@
 ## Privacy policy
 
-When you log into reciprocity.io or interact with the app you should assume
-that we store everything you do. We also use the facebook API to get your
+We use the facebook API to get your
 photo and list of friends who use reciprocity.  The data is
 used to implement the app and to calculate anonymized statistics like total number
-of users and total number of matches.  If you destroy your account we will try
-to immediately remove all of the interesting data about you, but we won't be
-able to remove you from all of the log files etc.; for all we know that stuff
-will stick around indefinitely.
+of users and total number of matches.
 
-All of that data is stored unencrypted in our database, so we could look at it
-if we wanted to. We promise not to.  We try to be basically sensible about security,
-but probably a sufficiently determined attacker could somehow get the data.
+The only data that we process is your username, list of friends, bio, and the checks you click. We process this data
+for the purpose of implementing the app.
 
 We use cookies to keep track of the fact that you are logged in.
 
-## Terms of service
+To request data deletion, email bshlegeris@gmail.com.

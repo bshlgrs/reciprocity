@@ -131,15 +131,10 @@ const caveatAccordion = <Accordion>
 
       <ul>
         <li>
-          There is no way to delete an account. I'm trying to fix this. If you want to delete your account, message me.
+          There is no way to delete an account. I'm trying to fix this. To delete your account, email bshlegeris@gmail.com.
         </li>
         <li>
           When you match with someone, it doesn't send you an email, it just shows you the green tick.
-        </li>
-        <li>
-          This site is, uh, hosted on my laptop and will break if I ever turn my laptop off. I plan to deploy the app
-          server
-          somewhere else eventually, obviously.
         </li>
       </ul>
 
@@ -203,9 +198,11 @@ class App extends React.Component {
             {this.state.myInfo.name}</div>
         </div>}</div>
         <h1>reciprocity.io</h1>
-        <div style={{color: "#D2CBC7", fontWeight: '700', fontSize: "1.5em", paddingBottom: '50px'}}>
+        <div style={{color: "#D2CBC7", fontWeight: '700', fontSize: "1.5em"}}>
           what would you do, if they wanted to too?
         </div>
+        <div style={{paddingBottom: '50px'}}><a href={'/privacy_policy.txt'}>privacy policy</a></div>
+
 
         {!this.state.myInfo &&
         <div id='main'>
@@ -213,11 +210,12 @@ class App extends React.Component {
             <div>You check boxes</div>
             <div>Your friends check boxes</div>
             <div>You see when you've checked each other's boxes</div>
-          </div>
+          </div>]sd
           <Button color="primary" variant="contained" onClick={() => {
             window.FB.login((resp) => this.handleFBLogin(resp), {scope: 'user_friends,email'});
           }}>Log in with Facebook
-          </Button></div>}</div>
+          </Button>
+        </div>}</div>
       {this.state.myInfo && <div>
         <div id='main'>
           {instructionAccordion}
