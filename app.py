@@ -120,6 +120,9 @@ def api_delete_user():
     ses.delete(current_user)
     return "ok"
 
+@app.errorhandler(500)
+def internal_error(error):
+    ses.rollback()
 
 if __name__ == "__main__":
     # Threaded option to enable multiple instances for multiple user access support
