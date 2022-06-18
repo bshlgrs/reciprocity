@@ -248,6 +248,7 @@ class App extends React.Component {
               
           </div>
           <div>
+            {this.state.myVisibilitySetting == 'invisible' ? <p>Set your visibility to something other than 'invisible' in order to see people!</p> :
             <FriendsListView
                 myChecks={this.state.myChecks}
                 currentChecksState={this.state.currentChecksState}
@@ -257,7 +258,7 @@ class App extends React.Component {
                 friendPictures={this.state.friendPictures}
                 sendUpdateRequest={(myNewChecks) => this.sendUpdateRequest(myNewChecks)}
                 setCheckedState={(id, activity, currChecked) => this.setCheckedState(id, activity, currChecked)}
-            /></div>
+            />}</div>
 
         </div>
         <div id='footer'>
