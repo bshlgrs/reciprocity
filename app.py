@@ -48,8 +48,7 @@ def api_info():
     else:
         friend_filter = and_(
             User.fb_id.in_([x["id"] for x in friends]),
-            User.visibility_setting != "invisible",
-            User.fb_id != my_fb_id,
+            User.visibility_setting != "invisible"
         )
 
         if current_user.visibility_setting == "everyone":
@@ -59,6 +58,7 @@ def api_info():
             ses.query(User)
             .filter(User.bio.isnot(None))
             .filter(friend_filter)
+            .filter(User.fb_id != my_fb_id)
             .order_by(User.id)
             .all()
         )
