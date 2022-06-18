@@ -374,8 +374,9 @@ class FriendsListView extends React.Component {
 
 
   render() {
-    function filterPred (nameFilter, friend) {
-      return !nameFilter || friend.name.includes(nameFilter);
+    const filterPred = (friend) => {
+      return (!this.state.nameFilter || friend.name.toLowerCase().includes(this.state.nameFilter.toLowerCase())) && 
+          (!this.state.bioFilter || friend.bio.toLowerCase().includes(this.state.bioFilter.toLowerCase()));
     }
 
     return (
@@ -383,17 +384,19 @@ class FriendsListView extends React.Component {
           <thead>
           <tr>
             <td><h3>People</h3>
-            <div>Name filter: <input value={this.state.nameFilter} onChange={(e) => this.setState({nameFilter: e.target.value})} /></div></td>
+            <div>Name filter: <input value={this.state.nameFilter} onChange={(e) => this.setState({nameFilter: e.target.value})} /></div>
+            <div>Bio filter: <input value={this.state.bioFilter} onChange={(e) => this.setState({bioFilter: e.target.value})} /></div></td>
+            
             <td>Hang out sometime</td>
             <td>Go on a date or something</td>
             <td>Lick feet</td>
           </tr>
           </thead>
           <tbody>
-          {this.props.friendsList.filter((f) => filterPred(this.state.nameFilter, f)).map((friend) => {
+          {this.props.friendsList.filter((f) => filterPred(f)).map((friend) => {
             return (this.props.reciprocations.get(friend.id, Immutable.Set()).size > 0) && this.renderFriendRow(friend);
           })}
-          {this.props.friendsList.filter((f) => filterPred(this.state.nameFilter, f)).map((friend) => {
+          {this.props.friendsList.filter((f) => filterPred(f)).map((friend) => {
             return (this.props.reciprocations.get(friend.id, Immutable.Set()).size === 0) && this.renderFriendRow(friend);
           })}
           </tbody>
