@@ -319,3 +319,5 @@ Thumbs.db #thumbnail cache on Windows
 
 .idea
 reciprocity_frontend/src/.sass-cache
+
+.vscode

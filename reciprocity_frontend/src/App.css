@@ -30,7 +30,7 @@ h1 {
 
 
 #header {
-    background-color: #F9F2EF;
+    background-color: #f700b5;
     top: 0;
     height: 25s0px;
     left: 0;
@@ -122,3 +122,16 @@ td {
 
 
 }
+
+select {
+    appearance: none;
+    background-color: transparent;
+    /* border: none; */
+    padding: 0 1em 0 0;
+    margin: 0;
+    width: 100%;
+    font-family: inherit;
+    font-size: inherit;
+    cursor: inherit;
+    line-height: inherit;
+  }

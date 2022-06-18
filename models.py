@@ -28,6 +28,8 @@ class User(Base):
     name = Column(String)
     fb_id: str
     fb_id = Column(String)
+    visibility_setting: str
+    visibility_setting = Column(String)
     bio: str
     bio = Column(Text)
 

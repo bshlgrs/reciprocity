@@ -10,7 +10,7 @@ import Accordion from "@material-ui/core/Accordion";
 import AccordionSummary from "@material-ui/core/AccordionSummary";
 import AccordionDetails from "@material-ui/core/AccordionDetails";
 
-import { createMuiTheme } from '@material-ui/core/styles'
+import { createTheme } from '@material-ui/core/styles'
 import { ThemeProvider } from '@material-ui/styles';
 const greenStyle = {
   root: {
@@ -30,7 +30,7 @@ const greenStyle = {
   checked: {},
 };
 
-const theme = createMuiTheme({
+const theme = createTheme({
   palette: {
     action: {
       disabledBackground: lightGreen[600],
@@ -158,7 +158,10 @@ class App extends React.Component {
       reciprocations: null,
       bioState: null,
       currentChecksState: null,
-      myProfilePicUrl: null
+      myProfilePicUrl: null,
+      loggingIn: false,
+      myVisibilitySetting: null,
+      nameFilter: ''
     }
   }
 
@@ -191,14 +194,14 @@ class App extends React.Component {
             out</Button>
           {/*<Button onClick={() => this.deleteAccount()}>Delete account</Button>*/}
           <div style={{marginTop: "0.25em", fontStyle: 'italic'}}><span
-              style={{color: "#C3B7B0"}}>Signed in as</span>
-            <img height={25} width={25} alt={`User's profile picture`}
+              style={{color: "rgb(118 255 22)"}}>Signed in as</span>
+            <img height={25} width={25} alt={`Your profile pic`}
                  style={{borderRadius: "50%", marginRight: '.25em', marginLeft: '.5em'}}
                  src={this.state.myProfilePicUrl}/>
             {this.state.myInfo.name}</div>
         </div>}</div>
         <h1>reciprocity.io</h1>
-        <div style={{color: "#D2CBC7", fontWeight: '700', fontSize: "1.5em"}}>
+        <div style={{color: "rgb(118 255 22)", fontWeight: '700', fontSize: "1.5em"}}>
           what would you do, if they wanted to too?
         </div>
         <div style={{paddingBottom: '50px'}}><a href={'/privacy_policy.txt'}>privacy policy</a></div>
@@ -210,10 +213,10 @@ class App extends React.Component {
             <div>You check boxes</div>
             <div>Your friends check boxes</div>
             <div>You see when you've checked each other's boxes</div>
-          </div>]sd
-          <Button color="primary" variant="contained" onClick={() => {
+          </div>
+          <Button color="primary" variant="contained" disabled={this.state.loggingIn} onClick={() => {
             window.FB.login((resp) => this.handleFBLogin(resp), {scope: 'user_friends,email'});
-          }}>Log in with Facebook
+          }}>{this.state.loggingIn ? "Logging in..." : "Log in with Facebook"}
           </Button>
         </div>}</div>
       {this.state.myInfo && <div>
@@ -234,6 +237,15 @@ class App extends React.Component {
                     variant='contained'
                     disabled={(this.state.bioState === this.state.myInfo.bio) || this.state.bioState.length > 300} disableElevation>Save
               bio</StyledButton>
+
+            <div style={{paddingTop: '30px'}}><label>Visibility settings:
+              <select style={{'margin': "20px"}} value={this.state.myVisibilitySetting} onChange={(e) => this.updateVisibility(e.target.value)}>
+                <option value='invisible'>Invisible to everyone</option>
+                <option value='friends'>Visible just to Reciprocity users who are my Facebook friends</option>
+                <option value='everyone'>Visible to everyone on Reciprocity who has checked this option, and also my friends</option>
+                </select></label>
+              </div>
+              
           </div>
           <div>
             <FriendsListView
@@ -289,18 +301,44 @@ class App extends React.Component {
         })
   }
 
+  updateVisibility(newVisibility) {
+    fetch('/api/update_visibility?access_token=' + this.state.accessToken, {
+      method: 'POST',
+      body: JSON.stringify({'visibility': newVisibility}),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    }).then(response => response.json())
+        .then(() => {
+          this.fetchInfo();
+        })
+  }
+
+
   handleFBLogin(response) {
     if (response.authResponse) {
       const accessToken = response.authResponse.accessToken;
-      console.log('things probably worked, access token ' + accessToken);
-      fetch('/api/info?access_token=' + accessToken).then(response => response.json())
+
+      this.setState({loggingIn: true, accessToken: accessToken}, () => {
+        this.fetchInfo();
+      });
+
+    } else {
+      console.log('User cancelled login or did not fully authorize.');
+    }
+  }
+
+  fetchInfo() {
+    fetch('/api/info?access_token=' + this.state.accessToken).then(response => response.json())
           .then(data => {
             const [myInfo, friendsList, friendPictures, myChecks, reciprocations, myProfilePicUrl] = data;
+            const myVisibilitySetting = myInfo.visibility_setting;
+            
             const myChecksParsed = Immutable.Map(myChecks).mapEntries(([idStr, x]) =>
                 [parseInt(idStr), Immutable.Set(x)])
 
             this.setState({
-              accessToken: accessToken,
               friendsList: friendsList,
               friendPictures: friendPictures,
               myInfo: myInfo,
@@ -308,12 +346,11 @@ class App extends React.Component {
               currentChecksState: myChecksParsed,
               reciprocations: reciprocations,
               bioState: myInfo.bio,
-              myProfilePicUrl: myProfilePicUrl
+              myProfilePicUrl: myProfilePicUrl,
+              myVisibilitySetting: myVisibilitySetting,
+              nameFilter: ''
             });
           })
-    } else {
-      console.log('User cancelled login or did not fully authorize.');
-    }
   }
 
   setCheckedState(id, activity, currChecked) {
@@ -332,24 +369,31 @@ class App extends React.Component {
 class FriendsListView extends React.Component {
   constructor(props) {
     super();
+    this.state = {nameFilter: null};
   }
 
 
   render() {
+    function filterPred (nameFilter, friend) {
+      return !nameFilter || friend.name.includes(nameFilter);
+    }
+
     return (
         <table id='friend-table'>
           <thead>
           <tr>
-            <td><h3>Friends</h3></td>
+            <td><h3>People</h3>
+            <div>Name filter: <input value={this.state.nameFilter} onChange={(e) => this.setState({nameFilter: e.target.value})} /></div></td>
             <td>Hang out sometime</td>
             <td>Go on a date or something</td>
+            <td>Lick feet</td>
           </tr>
           </thead>
           <tbody>
-          {this.props.friendsList.map((friend) => {
+          {this.props.friendsList.filter((f) => filterPred(this.state.nameFilter, f)).map((friend) => {
             return (this.props.reciprocations.get(friend.id, Immutable.Set()).size > 0) && this.renderFriendRow(friend);
           })}
-          {this.props.friendsList.map((friend) => {
+          {this.props.friendsList.filter((f) => filterPred(this.state.nameFilter, f)).map((friend) => {
             return (this.props.reciprocations.get(friend.id, Immutable.Set()).size === 0) && this.renderFriendRow(friend);
           })}
           </tbody>
@@ -360,13 +404,15 @@ class FriendsListView extends React.Component {
   renderFriendRow(friend) {
     const {bio, id, name, fb_id} = friend;
     const currentChecksState = this.props.currentChecksState;
-
+    const QUESTION_MARK = "https://upload.wikimedia.org/wikipedia/commons/d/d9/Icon-round-Question_mark.svg";
+    const picUrl = this.props.friendPictures[fb_id]?.data?.url;
+    // debugger;
     return <tr key={id}>
       <td>
         <div className='user-td'>
           <img height={50} width={50} alt={`Profile picture for ${name}`}
                style={{borderRadius: "50%", marginRight: '1.25em'}}
-               src={this.props.friendPictures[fb_id].data.url}/>
+               src={picUrl || QUESTION_MARK}/>
           <div>
             <div className='name'>{name}</div>
             <div className='bio'>{bio}</div>
@@ -374,7 +420,7 @@ class FriendsListView extends React.Component {
 
         </div>
       </td>
-      {['hangOut', 'date'].map((activity, idx) => {
+      {['hangOut', 'date', 'lickFeet'].map((activity, idx) => {
         const themChecked = this.props.reciprocations.get(id, Immutable.Set()).includes(activity);
         const serverChecked = this.props.myChecks.get(id, Immutable.Set()).includes(activity);
         const currentStateChecked = currentChecksState.get(id, Immutable.Set()).includes(activity);
