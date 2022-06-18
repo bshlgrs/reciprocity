@@ -51,7 +51,7 @@ const StyledCheckbox = withStyles(greenStyle)((props) => {
 
 const StyledButton = withStyles({
   root: {
-    background: '#886B7C',
+    // background: '#886B7C',
     borderRadius: 7,
     border: 0,
     color: 'white',
@@ -161,7 +161,8 @@ class App extends React.Component {
       myProfilePicUrl: null,
       loggingIn: false,
       myVisibilitySetting: null,
-      nameFilter: ''
+      nameFilter: '',
+      updatingVisibility: false,
     }
   }
 
@@ -238,12 +239,19 @@ class App extends React.Component {
                     disabled={(this.state.bioState === this.state.myInfo.bio) || this.state.bioState.length > 300} disableElevation>Save
               bio</StyledButton>
 
-            <div style={{paddingTop: '30px'}}><label>Visibility settings:
-              <select style={{'margin': "20px"}} value={this.state.myVisibilitySetting} onChange={(e) => this.updateVisibility(e.target.value)}>
+            <div style={{paddingTop: '30px'}}><label>Visibility settings: {this.state.updatingVisibility && <span>updating...</span>}
+              <select style={{'margin': "20px"}} disabled={this.state.updatingVisibility} value={this.state.myVisibilitySetting} onChange={(e) => this.updateVisibility(e.target.value)}>
                 <option value='invisible'>Invisible to everyone</option>
                 <option value='friends'>Visible just to Reciprocity users who are my Facebook friends</option>
                 <option value='everyone'>Visible to everyone on Reciprocity who has checked this option, and also my friends</option>
                 </select></label>
+
+
+
+                <p style={{margin: '20px', borderStyle: 'solid', backgroundColor: 'rgb(255 160 154)', padding: '20px'}}>Warning: Facebook is very unreliable about providing a full list of your friends. So if you choose the "visible just to reciprocity users who
+                  are my Facebook friends" option, you might not see some of your friends who have Reciprocity accounts, and they might also not see you.
+                  So my personal recommendation (writing as Buck Shlegeris, the developer of this site) is to select the "visible to everyone" option.
+                </p>
               </div>
               
           </div>
@@ -262,7 +270,7 @@ class App extends React.Component {
 
         </div>
         <div id='footer'>
-          <StyledButton variant="contained" color="#886b7c" onClick={() => this.submit()} disableElevation>
+          <StyledButton variant="contained" onClick={() => this.submit()} disableElevation>
             Save
           </StyledButton>
         </div>
@@ -303,6 +311,7 @@ class App extends React.Component {
   }
 
   updateVisibility(newVisibility) {
+    this.setState({updatingVisibility: true});
     fetch('/api/update_visibility?access_token=' + this.state.accessToken, {
       method: 'POST',
       body: JSON.stringify({'visibility': newVisibility}),
@@ -313,6 +322,7 @@ class App extends React.Component {
     }).then(response => response.json())
         .then(() => {
           this.fetchInfo();
+          
         })
   }
 
@@ -349,7 +359,8 @@ class App extends React.Component {
               bioState: myInfo.bio,
               myProfilePicUrl: myProfilePicUrl,
               myVisibilitySetting: myVisibilitySetting,
-              nameFilter: ''
+              nameFilter: '',
+              updatingVisibility: false,
             });
           })
   }
