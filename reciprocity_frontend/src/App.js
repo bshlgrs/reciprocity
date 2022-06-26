@@ -378,6 +378,8 @@ class App extends React.Component {
   }
 }
 
+const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
+
 class FriendsListView extends React.Component {
   constructor(props) {
     super();
@@ -430,7 +432,10 @@ class FriendsListView extends React.Component {
                src={picUrl || QUESTION_MARK}/>
           <div>
             <div className='name'>{name}</div>
-            <div className='bio'>{bio}</div>
+            <div className='bio'>{(bio || "").split(" ")
+                .map(part =>
+                  urlRegex.test(part) ? <a href={part}>{part} </a> : part + " "
+                )}</div>
           </div>
 
         </div>
