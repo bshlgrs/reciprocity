@@ -56,7 +56,7 @@ def api_info():
 
         friend_objects = (
             ses.query(User)
-            .filter(User.bio.isnot(None))
+            # .filter(User.bio.isnot(None))
             .filter(friend_filter)
             .filter(User.fb_id != my_fb_id)
             .order_by(User.id)
