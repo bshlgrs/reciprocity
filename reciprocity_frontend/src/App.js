@@ -390,7 +390,7 @@ class FriendsListView extends React.Component {
   render() {
     const filterPred = (friend) => {
       return (!this.state.nameFilter || friend.name.toLowerCase().includes(this.state.nameFilter.toLowerCase())) && 
-          (!this.state.bioFilter || friend.bio.toLowerCase().includes(this.state.bioFilter.toLowerCase()));
+          (!this.state.bioFilter || (friend.bio && friend.bio.toLowerCase().includes(this.state.bioFilter.toLowerCase())));
     }
 
     return (
