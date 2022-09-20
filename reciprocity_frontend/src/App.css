@@ -87,6 +87,7 @@ td {
     font-size: 0.9em;
     font-style: italic;
     color: #473c36;
+    overflow-wrap: anywhere
 }
 
 .name {
