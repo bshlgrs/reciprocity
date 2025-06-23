@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>reciprocity.io</title>
+   
+</head>
+<body>
+    <!-- remember to style the body with an interesting background -->
+    <div id="root">
+        <div class="app">
+            <!-- HEADER SECTION -->
+            <div id="header">
+                <div id="logout">
+                    <button class="MuiButton-root">Log out</button>
+                    <div style="margin-top: 0.25em; font-style: italic;">
+                        <span style="color: rgb(118, 255, 22);">Signed in as</span>
+                        <img height="25" width="25" alt="Profile pic" src="#" style="border-radius: 50%; margin: 0 0.5em;">
+                        User Name
+                    </div>
+                </div>
+                <h1>reciprocity.pro</h1>
+                <div style="color: rgb(118, 255, 22); font-weight: 700; font-size: 1.5em;">
+                    what would you do, if they wanted to too?
+                </div>
+                <div style="padding-bottom: 50px;">
+                    <a href="/privacy_policy.txt">privacy policy</a>
+                </div>
+            </div>
+
+            <!-- MAIN CONTENT -->
+            <div id="main">
+                <!-- INSTRUCTIONS ACCORDION -->
+                <div class="MuiAccordion-root" style="margin-top: 50px;">
+                    <div class="MuiAccordionSummary-root">
+                        <div class="MuiAccordionSummary-content">Show instructions</div>
+                    </div>
+                    <div class="MuiAccordionDetails-root" style="display: none;">
+                        <div>Select things you would do with people.</div>
+                        <div>Press <button class="MuiButton-root">Save</button>.</div>
+                        <div>Find out if they reciprocate.</div>
+                        <div>If they never reciprocate, nobody knows you tried!</div>
+                        <div>If they do, you can do the thing!</div>
+                    </div>
+                </div>
+
+                <!-- USER SETTINGS ACCORDION -->
+                <div class="MuiAccordion-root" style="margin-top: 30px;">
+                    <div class="MuiAccordionSummary-root">
+                        <div class="MuiAccordionSummary-content">User Settings</div>
+                    </div>
+                    <div class="MuiAccordionDetails-root">
+                        <!-- Bio Section -->
+                        <div>
+                            <h3>Bio</h3>
+                            <small>e.g. 'I don't use this for dating, and I'm mostly looking for female friends'</small>
+                            <div class="MuiTextField-root">
+                                <textarea class="MuiInputBase-input" rows="3" placeholder="Enter your bio..."></textarea>
+                            </div>
+                            <button class="MuiButton-root">Save bio</button>
+                        </div>
+
+                        <!-- Visibility Settings -->
+                        <div style="padding-top: 30px;">
+                            <label style="font-weight: bold;">Visibility settings:</label>
+                            <select style="padding: 5px 10px; margin-left: 10px;">
+                                <option value="invisible">Invisible to everyone</option>
+                                <option value="friends">Visible to Facebook friends only</option>
+                                <option value="everyone">Visible to everyone</option>
+                            </select>
+                        </div>
+
+                        <!-- Phone Number -->
+                        <div style="padding-top: 30px;">
+                            <label style="font-weight: bold;">Phone Number:</label>
+                            <input class="MuiInputBase-input" type="text" placeholder="Enter phone number" style="margin-left: 10px;">
+                            <button class="MuiButton-root">Save phone number</button>
+                        </div>
+
+                        <!-- Dating Doc Link -->
+                        <div style="padding-top: 30px;">
+                            <label style="font-weight: bold;">Dating Doc Link:</label>
+                            <input class="MuiInputBase-input" type="text" placeholder="Enter URL" style="margin-left: 10px;">
+                            <button class="MuiButton-root">Save dating doc link</button>
+                        </div>
+
+                        <!-- Custom CSS -->
+                        <div style="padding-top: 30px;">
+                            <label style="font-weight: bold;">Custom CSS:</label>
+                            <textarea class="MuiInputBase-input" rows="6" placeholder="Enter CSS..."></textarea>
+                            <button class="MuiButton-root">Save custom CSS</button>
+                            <button class="MuiButton-root" style="background: #dc3545;">Clear CSS</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PEOPLE TABLE -->
+                <div>
+                    <table id="friend-table">
+                        <thead>
+                            <!-- remember to style the thead so that the text is a readable color -->
+                            <tr>
+                                <td style="padding-left: 20px;">
+                                    <h3>People</h3>
+                                    <div>Name filter: <input class="MuiInputBase-input"></div>
+                                    <div>Bio filter: <input class="MuiInputBase-input"></div>
+                                    <div style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                        Showing 20 of 1019 people
+                                    </div>
+                                </td>
+                                <td class="check-cell">Hang out sometime</td>
+                                <td class="check-cell">Go on a date or something</td>
+                                <td class="check-cell">Lick feet</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Sample User Row -->
+                            <tr>
+                                <td>
+                                    <div class="user-td">
+                                        <div>
+                                            <div class="name">Sample User</div>
+                                            <div class="bio">Sample bio text here...</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="check-cell">
+                                    <input type="checkbox" class="MuiCheckbox-root">
+                                </td>
+                                <td class="check-cell">
+                                    <input type="checkbox" class="MuiCheckbox-root">
+                                </td>
+                                <td class="check-cell">
+                                    <input type="checkbox" class="MuiCheckbox-root">
+                                </td>
+                            </tr>
+                            <!-- More rows would go here -->
+                        </tbody>
+                    </table>
+                    
+                    <div style="text-align: center; margin: 20px 0;">
+                        <button class="MuiButton-root">Load More (999 remaining)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FIXED FOOTER -->
+            <div id="footer">
+                <button class="MuiButton-root">Save</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

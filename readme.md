@@ -18,3 +18,12 @@ For a single command to do all of this, go to the reciprocity_frontend folder an
 - Install heroku and log into an account that can access the heroku app on the heroku CLI
 - Run `git remote add heroku https://git.heroku.com/reciprocity2.git/` to set up the Heroku remote for the first time.
 - Do `git push heroku main` to deploy. It builds from the Dockerfile.
+
+
+## TODOs
+
+- Notifications
+- Contact info displayed after you match with someone
+- Button to display the last time you logged in
+- Profile pictures
+- Option to hide people you've seen

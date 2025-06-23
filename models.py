@@ -32,6 +32,12 @@ class User(Base):
     visibility_setting = Column(String)
     bio: str
     bio = Column(Text)
+    phone_number: str
+    phone_number = Column(String)
+    dating_doc_link: str
+    dating_doc_link = Column(Text)
+    custom_css: str
+    custom_css = Column(Text)
 
     @staticmethod
     def find_or_create_by_fb_id(my_fb_id, name):

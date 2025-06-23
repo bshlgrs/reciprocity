@@ -5,6 +5,15 @@ html {
 body {
     min-height: 100%;
     font-family: 'Poppins', sans-serif;
+    font-display: swap;
+    background: linear-gradient(0deg, 
+        #E6A8E6 0%, 
+        #90EE90 25%, 
+        #87CEEB 50%, 
+        #90EE90 75%, 
+        #E6A8E6 100%);
+    background-size: 100% 400%;
+    animation: infiniteGradient 12s ease-in-out infinite;
 }
 
 h1 {
@@ -56,6 +65,7 @@ h1 {
 
 #friend-table {
     margin-top: 100px;
+    table-layout: fixed;
 }
 
 td {
@@ -64,16 +74,23 @@ td {
 }
 
 #friend-table tr:nth-child(even) {
-    background-color: #fafafa;
+    background-color: #FFF8DC; /* Parchment color */
+}
+
+#friend-table tr:nth-child(odd) {
+    background-color: #FFFFFF; /* White */
 }
 
 #friend-table td:first-child {
-    width: 100%
+    width: 100%;
 }
 
 .check-cell {
     vertical-align: middle;
     text-align: center;
+    width: 150px !important;
+    min-width: 150px;
+    max-width: 150px;
 }
 
 .user-td {
@@ -87,7 +104,7 @@ td {
     font-size: 0.9em;
     font-style: italic;
     color: #473c36;
-    overflow-wrap: anywhere
+    overflow-wrap: anywhere;
 }
 
 .name {
@@ -136,3 +153,150 @@ select {
     cursor: inherit;
     line-height: inherit;
   }
+
+/* UNHINGED LOGIN BUTTON ANIMATIONS */
+.unhinged-login {
+    animation: 
+        unhinged-spin 0.8s linear infinite,
+        unhinged-bounce 0.6s ease-in-out infinite,
+        unhinged-shake 0.1s linear infinite,
+        unhinged-pulse 0.4s ease-in-out infinite,
+        unhinged-rainbow 0.5s linear infinite,
+        unhinged-grow 5s linear forwards !important;
+    transform-origin: center center;
+    filter: saturate(2) hue-rotate(0deg);
+}
+
+@keyframes unhinged-spin {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(90deg); }
+    50% { transform: rotate(180deg); }
+    75% { transform: rotate(270deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes unhinged-grow {
+    0% { transform: scale(1); }
+    100% { transform: scale(2); }
+}
+
+@keyframes unhinged-bounce {
+    0%, 100% { 
+        transform: translateY(0px) skew(0deg);
+    }
+    25% { 
+        transform: translateY(-20px) skew(5deg);
+    }
+    50% { 
+        transform: translateY(-40px) skew(-5deg);
+    }
+    75% { 
+        transform: translateY(-10px) skew(3deg);
+    }
+}
+
+@keyframes unhinged-shake {
+    0% { transform: translateX(0px); }
+    10% { transform: translateX(-3px); }
+    20% { transform: translateX(3px); }
+    30% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    50% { transform: translateX(-2px); }
+    60% { transform: translateX(2px); }
+    70% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+    90% { transform: translateX(-1px); }
+    100% { transform: translateX(1px); }
+}
+
+@keyframes unhinged-pulse {
+    0% { 
+        box-shadow: 0 0 0 0 rgba(255, 0, 255, 0.7);
+    }
+    50% { 
+        box-shadow: 0 0 0 20px rgba(255, 0, 255, 0),
+                    0 0 30px 10px rgba(0, 255, 255, 0.4),
+                    inset 0 0 20px rgba(255, 255, 0, 0.3);
+    }
+    100% { 
+        box-shadow: 0 0 0 0 rgba(255, 0, 255, 0);
+    }
+}
+
+@keyframes unhinged-rainbow {
+    0% { 
+        background: linear-gradient(45deg, #ff0000, #ff8800) !important;
+        filter: hue-rotate(0deg) saturate(2);
+    }
+    16.66% { 
+        background: linear-gradient(45deg, #ff8800, #ffff00) !important;
+        filter: hue-rotate(60deg) saturate(2);
+    }
+    33.33% { 
+        background: linear-gradient(45deg, #ffff00, #88ff00) !important;
+        filter: hue-rotate(120deg) saturate(2);
+    }
+    50% { 
+        background: linear-gradient(45deg, #88ff00, #00ff88) !important;
+        filter: hue-rotate(180deg) saturate(2);
+    }
+    66.66% { 
+        background: linear-gradient(45deg, #00ff88, #0088ff) !important;
+        filter: hue-rotate(240deg) saturate(2);
+    }
+    83.33% { 
+        background: linear-gradient(45deg, #0088ff, #8800ff) !important;
+        filter: hue-rotate(300deg) saturate(2);
+    }
+    100% { 
+        background: linear-gradient(45deg, #8800ff, #ff0088) !important;
+        filter: hue-rotate(360deg) saturate(2);
+    }
+}
+
+/* Extra chaos for the button text */
+.unhinged-login span {
+    animation: unhinged-text-chaos 0.3s linear infinite;
+}
+
+@keyframes unhinged-text-chaos {
+    0% { 
+        transform: scale(1) rotate(0deg);
+        text-shadow: 2px 2px 4px rgba(255, 0, 255, 0.8);
+    }
+    25% { 
+        transform: scale(1.1) rotate(2deg);
+        text-shadow: -2px 2px 4px rgba(0, 255, 255, 0.8);
+    }
+    50% { 
+        transform: scale(0.9) rotate(-2deg);
+        text-shadow: 2px -2px 4px rgba(255, 255, 0, 0.8);
+    }
+    75% { 
+        transform: scale(1.05) rotate(1deg);
+        text-shadow: -2px -2px 4px rgba(255, 0, 0, 0.8);
+    }
+    100% { 
+        transform: scale(1) rotate(0deg);
+        text-shadow: 2px 2px 4px rgba(255, 0, 255, 0.8);
+    }
+}
+
+/* Infinite repeating gradient animation */
+@keyframes infiniteGradient {
+    0% {
+        background-position: 0% 0%;
+    }
+    25% {
+        background-position: 0% 25%;
+    }
+    50% {
+        background-position: 0% 50%;
+    }
+    75% {
+        background-position: 0% 75%;
+    }
+    100% {
+        background-position: 0% 0%;
+    }
+}
