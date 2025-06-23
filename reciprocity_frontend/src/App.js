@@ -1,6 +1,5 @@
 import './App.css';
 import React from 'react';
-import {Button} from '@material-ui/core';
 import Checkbox from '@material-ui/core/Checkbox';
 import {withStyles} from '@material-ui/core/styles';
 import {lightGreen, blue} from '@material-ui/core/colors';
@@ -51,26 +50,6 @@ const StyledCheckbox = withStyles(greenStyle)((props) => {
 
 });
 
-const StyledButton = withStyles({
-  root: {
-    background: '#886B7C',
-    borderRadius: 7,
-    border: 0,
-    color: 'white',
-    height: 40,
-    padding: '0 20px',
-    '&:hover': {
-      backgroundColor: 'black',
-    },
-    '&:disabled': {
-      color: 'white',
-      backgroundColor: '#B9A1AF',
-    },
-  },
-  label: {
-    textTransform: 'capitalize',
-  },
-})(Button);
 
 const instructionAccordion = <Accordion style={{marginTop: '50px'}}>
   <AccordionSummary
@@ -91,8 +70,8 @@ const instructionAccordion = <Accordion style={{marginTop: '50px'}}>
 
     <div>
       Press
-      <StyledButton style={{marginLeft: "0.5em"}} variant="contained" disableElevation>Save
-      </StyledButton>.
+      <button style={{marginLeft: "0.5em"}} >Save
+      </button>.
     </div>
 
     <div>
@@ -229,18 +208,18 @@ class App extends React.Component {
       <div id='header'>
         <div id='logout'>{this.state.myInfo &&
         <div>
-          <StyledButton onClick={() => window.FB.logout(() => window.location.reload())} variant="contained" disableElevation>Log
-            out</StyledButton>
+          <button onClick={() => window.FB.logout(() => window.location.reload())} >Log
+            out</button>
           {/*<Button onClick={() => this.deleteAccount()}>Delete account</Button>*/}
           <div style={{marginTop: "0.25em", fontStyle: 'italic'}}><span
-              style={{color: "rgb(118 255 22)"}}>Signed in as</span>
+              className="highlight-color">Signed in as</span>
             <img height={25} width={25} alt={`Your profile pic`}
                  style={{borderRadius: "50%", marginRight: '.25em', marginLeft: '.5em'}}
                  src={this.state.myProfilePicUrl}/>
             {this.state.myInfo.name}</div>
         </div>}</div>
         <h1>reciprocity.pro</h1>
-        <div style={{color: "rgb(118 255 22)", fontWeight: '700', fontSize: "1.5em"}}>
+        <div className="subtitle">
           what would you do, if they wanted to too?
         </div>
         <div style={{paddingBottom: '50px'}}><a href={'/privacy_policy.txt'}>privacy policy</a></div>
@@ -253,9 +232,7 @@ class App extends React.Component {
             <div>Your friends check boxes</div>
             <div>You see when you've checked each other's boxes</div>
           </div>
-          <Button 
-            color="primary" 
-            variant="contained" 
+          <button 
             disabled={this.state.loggingIn} 
             className={this.state.loggingIn ? "unhinged-login" : ""}
             onClick={() => {
@@ -264,7 +241,7 @@ class App extends React.Component {
             }}
           >
             {this.state.loggingIn ? "Logging in..." : "Log in with Facebook"}
-          </Button>
+          </button>
         </div>}</div>
       {this.state.myInfo && <div>
         <div id='main'>
@@ -399,27 +376,23 @@ class App extends React.Component {
 
             <div style={{paddingTop: '30px'}}>
               <div style={{display: 'flex', gap: '10px', marginTop: '1em'}}>
-                <StyledButton
+                <button
                   style={{marginTop: '1em', background: '#dc3545'}}
                   onClick={() => this.setState({customCssState: ""})}
-                  variant='contained'
-                  disableElevation
                 >
                   Clear custom style
-                </StyledButton>
+                </button>
               </div>
             </div>
 
             <div style={{paddingTop: '30px', textAlign: 'center', borderTop: '1px solid #ddd', marginTop: '30px'}}>
-              <StyledButton
+              <button
                 style={{fontSize: '1.1em', padding: '12px 30px'}}
                 onClick={() => this.saveAllUserSettings()}
-                variant='contained'
                 disabled={!this.hasUserSettingsChanges()}
-                disableElevation
               >
                 Save Changes
-              </StyledButton>
+              </button>
             </div>
             </AccordionDetails>
           </Accordion>
@@ -454,15 +427,13 @@ class App extends React.Component {
                   disabled={this.state.isGeneratingCSS}
                 />
                 <div style={{display: 'flex', gap: '10px'}}>
-                  <StyledButton
+                  <button
                     onClick={() => this.generateCustomCSS()}
-                    variant='contained'
                     disabled={this.state.isGeneratingCSS || !this.state.cssGenerationInstruction.trim()}
-                    disableElevation
-                    style={{background: this.state.isGeneratingCSS ? '#ccc' : '#28a745'}}
+                    
                   >
-                    {this.state.isGeneratingCSS ? 'considering...' : 'submit dumb suggestion'}
-                  </StyledButton>
+                    {this.state.isGeneratingCSS ? 'considering...' : 'redesign website'}
+                  </button>
                 </div>
                 
               </div>
@@ -484,9 +455,9 @@ class App extends React.Component {
 
         </div>
         <div id='footer'>
-          <StyledButton variant="contained" onClick={() => this.submit()} disableElevation>
-            Save
-          </StyledButton>
+          <button onClick={() => this.submit()}>
+            Submit checks
+          </button>
         </div>
       </div>}
     </div>
@@ -945,8 +916,7 @@ class FriendsListView extends React.Component {
           
           {hasMoreItems && (
             <div style={{textAlign: 'center', margin: '20px 0'}}>
-              <StyledButton 
-                variant="outlined" 
+              <button 
                 onClick={this.loadMoreItems}
                 style={{
                   background: 'transparent',
@@ -959,7 +929,7 @@ class FriendsListView extends React.Component {
                 }}
               >
                 Load More ({sortedFriends.length - this.state.itemsToShow} remaining)
-              </StyledButton>
+              </button>
             </div>
           )}
         </div>
