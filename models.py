@@ -8,7 +8,12 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import sessionmaker
 
 
-eng = create_engine(os.getenv('DATABASE_URL'))
+# Fix DATABASE_URL format for compatibility with newer SQLAlchemy versions
+database_url = os.getenv('DATABASE_URL')
+if database_url and database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+eng = create_engine(database_url)
 
 Base = declarative_base()
 
