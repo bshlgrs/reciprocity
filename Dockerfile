@@ -7,7 +7,7 @@ COPY reciprocity_frontend/. .
 RUN npm run build
 
 # Package into Python app
-FROM python:3
+FROM python:3.11
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt

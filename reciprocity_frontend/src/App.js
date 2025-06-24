@@ -1,6 +1,6 @@
 import './App.css';
 import React from 'react';
-import Immutable from 'immutable';
+import { Map, Set } from 'immutable';
 // Custom Checkbox Component
 const StyledCheckbox = (props) => {
   const {serverChecked, themChecked, checked, onChange, disabled} = props;
@@ -264,13 +264,8 @@ class App extends React.Component {
   }
 
   componentDidMount() {
-    window.setTimeout(() => {
-      if (window.FB) {
-        window.FB.getLoginStatus((resp) => this.handleFBLogin(resp));
-      } else {
-        this.componentDidMount();
-      }
-    }, 100)
+    // Better Facebook SDK initialization
+    this.initializeFacebookSDK();
 
     fetch('/api/get_tagline')
       .then(response => response.text())
@@ -289,7 +284,7 @@ class App extends React.Component {
 
         
       } catch (err) {
-        alert('Error loading global custom CSS.');
+        console.log('Error loading global custom CSS.', err);
       }
     }, 5000);
 
@@ -307,6 +302,39 @@ class App extends React.Component {
       }
     }, 5000);
 
+  }
+
+  initializeFacebookSDK() {
+    // Check if FB is already available
+    if (window.FB) {
+      window.FB.getLoginStatus((resp) => this.handleFBLogin(resp));
+      return;
+    }
+
+    // Wait for Facebook SDK to initialize
+    if (window.fbAsyncInit) {
+      const originalInit = window.fbAsyncInit;
+      window.fbAsyncInit = function() {
+        originalInit();
+        // SDK is now ready
+        window.FB.getLoginStatus((resp) => this.handleFBLogin(resp));
+      }.bind(this);
+    } else {
+      // Fallback: poll for FB object with a maximum number of retries
+      let retries = 0;
+      const maxRetries = 50; // 5 seconds max wait
+      const checkFB = () => {
+        if (window.FB) {
+          window.FB.getLoginStatus((resp) => this.handleFBLogin(resp));
+        } else if (retries < maxRetries) {
+          retries++;
+          setTimeout(checkFB, 100);
+        } else {
+          console.warn('Facebook SDK failed to load after 5 seconds');
+        }
+      };
+      checkFB();
+    }
   }
 
   componentWillUnmount() {
@@ -899,8 +927,8 @@ class App extends React.Component {
                 myChecks={this.state.myChecks}
                 currentChecksState={this.state.currentChecksState}
                 friendsList={this.state.friendsList}
-                reciprocations={Immutable.Map(this.state.reciprocations).mapEntries(([idStr, x]) =>
-                    [parseInt(idStr), Immutable.Set(x)])}
+                reciprocations={Map(this.state.reciprocations).mapEntries(([idStr, x]) =>
+                    [parseInt(idStr), Set(x)])}
                 friendPictures={this.state.friendPictures}
                 sendUpdateRequest={(myNewChecks) => this.sendUpdateRequest(myNewChecks)}
                 setCheckedState={(id, activity, currChecked) => this.setCheckedState(id, activity, currChecked)}
@@ -1244,8 +1272,8 @@ class App extends React.Component {
         .then(([myChecks, reciprocations]) => {
           // this.
           this.setState({
-            myChecks: Immutable.Map(myChecks).mapEntries(([idStr, x]) =>
-                [parseInt(idStr), Immutable.Set(x)]), reciprocations: reciprocations
+                    myChecks: Map(myChecks).mapEntries(([idStr, x]) =>
+          [parseInt(idStr), Set(x)]), reciprocations: reciprocations
           })
         })
   }
@@ -1287,8 +1315,8 @@ class App extends React.Component {
             let [myInfo, firstLogin, friendsList, friendPictures, myChecks, reciprocations, myProfilePicUrl] = data;
             const myVisibilitySetting = myInfo.visibility_setting;
 
-            const myChecksParsed = Immutable.Map(myChecks).mapEntries(([idStr, x]) =>
-                [parseInt(idStr), Immutable.Set(x)])
+                const myChecksParsed = Map(myChecks).mapEntries(([idStr, x]) =>
+      [parseInt(idStr), Set(x)])
 
             // Check if we should show the welcome back modal
             const shouldShowWelcomeBackModal = firstLogin;
@@ -1328,7 +1356,7 @@ class App extends React.Component {
   setCheckedState(id, activity, currChecked) {
     this.setState({
       currentChecksState:
-          this.state.currentChecksState.update(id, Immutable.Set(),
+          this.state.currentChecksState.update(id, Set(),
               (currSet) => currChecked ? currSet.remove(activity) : currSet.add(activity))
     })
   }
@@ -1372,10 +1400,10 @@ class FriendsListView extends React.Component {
     
     // Separate friends with reciprocations > 0 and friends with reciprocations === 0
     const friendsWithReciprocations = filteredFriends.filter(friend => 
-      this.props.reciprocations.get(friend.id, Immutable.Set()).size > 0
+      this.props.reciprocations.get(friend.id, Set()).size > 0
     );
     const friendsWithoutReciprocations = filteredFriends.filter(friend => 
-      this.props.reciprocations.get(friend.id, Immutable.Set()).size === 0
+      this.props.reciprocations.get(friend.id, Set()).size === 0
     );
     
     // Combine them with reciprocating friends first
@@ -1472,9 +1500,9 @@ class FriendsListView extends React.Component {
         </div>
       </td>
       {['hangOut', 'date', 'lickFeet'].map((activity, idx) => {
-        const themChecked = this.props.reciprocations.get(id, Immutable.Set()).includes(activity);
-        const serverChecked = this.props.myChecks.get(id, Immutable.Set()).includes(activity);
-        const currentStateChecked = currentChecksState.get(id, Immutable.Set()).includes(activity);
+        const themChecked = this.props.reciprocations.get(id, Set()).includes(activity);
+        const serverChecked = this.props.myChecks.get(id, Set()).includes(activity);
+        const currentStateChecked = currentChecksState.get(id, Set()).includes(activity);
         const currChecked = currentStateChecked === null ? (serverChecked || false) : currentStateChecked;
         return <td className="check-cell" key={idx}>
 
