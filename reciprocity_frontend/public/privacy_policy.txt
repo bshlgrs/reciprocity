@@ -10,4 +10,6 @@ for the purpose of implementing the app.
 
 We use cookies to keep track of the fact that you are logged in.
 
+If you use the "redesign this website" feature, your queries might be viewed by the developer, to prevent abuse and for our amusement.
+
 To request data deletion, email bshlegeris@gmail.com.

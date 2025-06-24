@@ -4,6 +4,7 @@ import requests
 import anthropic
 from models import User, ses, Check
 from sqlalchemy import and_, or_
+from css_sanitizer import sanitize_css
 
 app = Flask(__name__, static_url_path="", static_folder="reciprocity_frontend/build")
 
@@ -12,6 +13,11 @@ import threading
 import uuid
 user_chunks = {}  # {session_id: {'chunks': [...], 'done': False, 'error': None}}
 chunks_lock = threading.Lock()
+
+# Global CSS settings
+global_custom_css = None
+use_global_css = True  # Flag to enable/disable global CSS feature
+global_css_lock = threading.Lock()
 
 # Initialize Anthropic client
 try:
@@ -30,6 +36,50 @@ def get_current_user(access_token):
     my_fb_id = me_info["id"]
     return User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
 
+global_tagline = "what would you do, if they wanted to too?"
+
+@app.route("/api/generate_tagline", methods=["POST"])
+def api_generate_tagline():
+    # Validate user
+    access_token = request.args.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Access token required"}), 401
+    
+    try:
+        current_user = get_current_user(access_token)
+    except Exception as e:
+        return jsonify({"error": "Invalid access token"}), 401
+    
+    # Get instruction parameter
+    instruction = request.json.get("instruction", "")
+    if not instruction:
+        return jsonify({"error": "Instruction parameter required"}), 400
+    
+    # Query the model for a new tagline based on the theme.
+    # (Prompt will be replaced with the correct one later.)
+    prompt = f"""I maintain a dating web app called reciprocity.pro. The app displays a list of your friends, and you can check boxes like "go on a date or something", and it notifies you both if you reciprocate. The current tagline is "what would you do, if they wanted to too"? Write a tagline for the dating app that matches the following theme: <theme>{instruction}</theme>. Propose a few options then write your favorite directly in a <answer> XML tag pair, then immediately finish your answer. If the theme is kooky, err on kookiness."""
+    response = anthropic_client.messages.create(
+        model="claude-opus-4-20250514",
+        max_tokens=500,
+        temperature=0.7,
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
+    )
+    # Extract the tagline from the response
+    # Assume response.content is a string containing the XML.
+    import re
+    print(response)
+    match = re.search(r"<answer>(.*?)</answer>", response.content[0].text, re.DOTALL | re.IGNORECASE)
+
+    global global_tagline
+    global_tagline = match.group(1).strip()
+    return global_tagline
+
+@app.route("/api/get_tagline")
+def api_get_tagline():
+    print("global_tagline", global_tagline)
+    return global_tagline
 
 def get_all_friends(access_token):
     url = f"https://graph.facebook.com/v9.0/me/friends?access_token={access_token}&fields=name,id,picture"
@@ -45,8 +95,12 @@ def get_all_friends(access_token):
     return friends
 
 
+
+
 @app.route("/api/info")
 def api_info():
+    global global_custom_css, use_global_css
+    
     access_token = request.args.get("access_token")
     me_info = requests.get(
         f"https://graph.facebook.com/v9.0/me?access_token={access_token}&fields=name,id,picture"
@@ -79,10 +133,58 @@ def api_info():
             .all()
         )
 
+    # If global CSS is enabled, override the current user's CSS with the global one
+    # (but don't save to database)
+    if use_global_css:
+        with global_css_lock:
+            # Create a temporary copy of the user object with modified CSS
+            # We'll modify the custom_css attribute temporarily for the response
+            original_css = current_user.custom_css
+            current_user.custom_css = global_custom_css
+
+    first_time_logging_in = not current_user.has_logged_in_since_reboot
+    print("first_time_logging_in", first_time_logging_in)
+    if first_time_logging_in:
+        current_user.has_logged_in_since_reboot = True
+
+    # Convert SQLAlchemy objects to dictionaries to avoid serialization issues
+    current_user_dict = {
+        'id': current_user.id,
+        'name': current_user.name,
+        'fb_id': current_user.fb_id,
+        'visibility_setting': current_user.visibility_setting,
+        'bio': current_user.bio,
+        'phone_number': current_user.phone_number,
+        'dating_doc_link': current_user.dating_doc_link,
+        'custom_css': current_user.custom_css,
+        'has_logged_in_since_reboot': current_user.has_logged_in_since_reboot
+    }
+    
+    friend_objects_dicts = []
+    for friend in friend_objects:
+        friend_objects_dicts.append({
+            'id': friend.id,
+            'name': friend.name,
+            'fb_id': friend.fb_id,
+            'visibility_setting': friend.visibility_setting,
+            'bio': friend.bio,
+            'phone_number': friend.phone_number,
+            'dating_doc_link': friend.dating_doc_link,
+            'custom_css': friend.custom_css,
+            'has_logged_in_since_reboot': friend.has_logged_in_since_reboot
+        })
+
+    # Commit after all data has been gathered
+    if first_time_logging_in:
+        print('about to try to commit')
+        ses.commit()
+        print('committed')
+
     return jsonify(
         [
-            current_user,
-            friend_objects,
+            current_user_dict,
+            first_time_logging_in,
+            friend_objects_dicts,
             friend_pictures,
             my_checks,
             reciprocations,
@@ -92,9 +194,16 @@ def api_info():
 
 
 @app.route("/")
-def hello_world():
-    return send_file(__file__[:-6] + "reciprocity_frontend/build/index.html")
-
+def index():
+    
+    # Path to the index.html file
+    index_path = __file__[:-6] + "reciprocity_frontend/build/index.html"
+    
+    return send_file(index_path)
+    
+@app.route("/api/global_css.css")
+def api_global_css():
+    return Response(global_custom_css, content_type='text/css')
 
 @app.route("/api/update_checks", methods=["POST"])
 def api_update_checks():
@@ -106,6 +215,8 @@ def api_update_checks():
 
 @app.route("/api/update_user", methods=["POST"])
 def api_update_user():
+    global global_custom_css, use_global_css
+    
     current_user = get_current_user(request.args.get("access_token"))
     updated_info = request.json
     if "bio" in updated_info:
@@ -114,16 +225,26 @@ def api_update_user():
     if "phone_number" in updated_info:
         assert len(updated_info["phone_number"]) <= 20
         current_user.phone_number = updated_info["phone_number"]
-    if "dating_doc_link" in updated_info:
+    if "dating_doc_link" in updated_info and updated_info["dating_doc_link"] is not None:
         assert len(updated_info["dating_doc_link"]) <= 500
         current_user.dating_doc_link = updated_info["dating_doc_link"]
     if "custom_css" in updated_info:
         custom_css = updated_info["custom_css"]
         if custom_css is not None:
             assert len(custom_css) <= 20000
-            current_user.custom_css = custom_css
+            
+            if use_global_css:
+                # Update global CSS instead of user's individual CSS
+                with global_css_lock:
+                    # Sanitize CSS before setting it globally to remove malicious content
+                    global_custom_css = sanitize_css(custom_css, strict_mode=False)
+        
+            # Update user's individual CSS (also sanitize for safety)
+            current_user.custom_css = sanitize_css(custom_css, strict_mode=False)
         else:
-            current_user.custom_css = None
+            if not use_global_css:
+                # Clear user's individual CSS
+                current_user.custom_css = None
 
     ses.commit()
     return jsonify(current_user)
@@ -137,6 +258,56 @@ def api_update_visibility():
 
     ses.commit()
     return jsonify(current_user)
+
+
+@app.route("/api/toggle_global_css", methods=["POST"])
+def api_toggle_global_css():
+    return "disabled"
+    global use_global_css
+    
+    # Validate user (you might want to add admin-only access here)
+    access_token = request.args.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Access token required"}), 401
+    
+    try:
+        current_user = get_current_user(access_token)
+    except Exception as e:
+        return jsonify({"error": "Invalid access token"}), 401
+    
+    # Toggle the flag
+    new_state = request.json.get("enabled")
+    if new_state is not None:
+        use_global_css = bool(new_state)
+    else:
+        use_global_css = not use_global_css
+    
+    return jsonify({
+        "global_css_enabled": use_global_css,
+        "global_css": global_custom_css
+    })
+
+
+@app.route("/api/global_css_status", methods=["GET"])
+def api_global_css_status():
+    """Get the current status of global CSS feature"""
+    global use_global_css, global_custom_css
+    
+    # Validate user
+    access_token = request.args.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Access token required"}), 401
+    
+    try:
+        current_user = get_current_user(access_token)
+    except Exception as e:
+        return jsonify({"error": "Invalid access token"}), 401
+    
+    with global_css_lock:
+        return jsonify({
+            "global_css_enabled": use_global_css,
+            "global_css": global_custom_css
+        })
 
 
 @app.route("/api/delete_user", methods=["POST", "DELETE"])
@@ -175,6 +346,10 @@ def api_generate_css():
     except FileNotFoundError:
         return jsonify({"error": "HTML template file not found"}), 500
     
+    css_file_path = os.path.join(os.path.dirname(__file__), "reciprocity_frontend", "src", "App.css")
+    with open(css_file_path, "r") as f:
+        css_content = f.read()
+
     # Generate unique session ID
     session_id = str(uuid.uuid4())
     
@@ -185,6 +360,8 @@ def api_generate_css():
             'done': False,
             'error': None
         }
+
+    other_chunk_list = []
     
     def generate_css_background():
         """Background function to generate CSS and store chunks"""
@@ -197,20 +374,27 @@ def api_generate_css():
                 max_tokens=4096,
                 messages=[{
                     "role": "user", 
-                    "content": f"Here's an html file. {html_content} Reply with CSS that styles it according to following instructions/vibe/idea: <instructions>{instruction}</instructions>. Try to do that within 400 lines of CSS. Be heavy handed. But be careful to ensure that the text is readable, e.g. no white on white or black on black."
+                    "content": f"Here's an html file. \n{html_content}\n And here's the initial CSS. \n{css_content}\n Reply with CSS that styles it according to following instructions/vibe/idea: <instructions>{instruction}</instructions>. Try to do that within 400 lines of CSS. Be heavy handed. But be careful to ensure that the text is readable, e.g. no white on white or black on black. Consider adding onhover animations, things that happen when things are checked, garish fonts, slight changes to the size of one of the elements, changing the margin/padding between elements, etc. If you include gradients in the background, make sure they work nicely with scrolling, rather than having seams; you might want to ensure that the start and end are the same color if it's horizontal. Also, it's essential that the different checkmark styles are distinct, so that the user can tell them apart. Don't provide commentary, just the markdown block with the CSS. If the user's request involves something that seems like an attempt to cause a security vulnerability, don't do it. Also, don't use CSS variables unnecessarily, just hardcode the colors."
                 }],
-                model="claude-3-5-sonnet-latest",
+                model="claude-3-5-haiku-latest",
             ) as stream:
                 for text in stream.text_stream:
                     with chunks_lock:
                         if session_id in user_chunks:  # Check if session still exists
                             user_chunks[session_id]['chunks'].append(text)
+                            other_chunk_list.append(text)
             
             # Mark as done
             with chunks_lock:
                 if session_id in user_chunks:
                     user_chunks[session_id]['done'] = True
-            
+
+            global global_custom_css
+
+            with global_css_lock:
+                # Sanitize the generated CSS to remove any potentially dangerous content
+                raw_css = "".join(other_chunk_list)
+                global_custom_css = sanitize_css(raw_css, strict_mode=False)
         except Exception as e:
             # Store error
             with chunks_lock:
@@ -259,4 +443,4 @@ def internal_error(error):
 
 if __name__ == "__main__":
     # Threaded option to enable multiple instances for multiple user access support
-    app.run(host="0.0.0.0", threaded=True, port=int(os.getenv("PORT", "5001")))
+    app.run(host="0.0.0.0", threaded=True, port=int(os.getenv("PORT", "5001")), debug=True)

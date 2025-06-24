@@ -1,5 +1,6 @@
 html {
     height: 100%;
+    
 }
 
 body {
@@ -7,11 +8,13 @@ body {
     font-family: sans-serif;
     font-display: swap;
     color: black;
+    
 }
 
 h1 {
     font-size: 2.5em;
     margin-bottom: 0px;
+    
 }
 
 #root {
@@ -20,12 +23,13 @@ h1 {
 }
 
 #logout {
-    height: 50px;
+    
     flex: none;
     margin-left: auto;
     margin-top: 30px;
     flex: none;
     text-align: right;
+    
 }
 
 #header {
@@ -37,7 +41,9 @@ h1 {
     padding-right: 100px;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     z-index: 1;
+    
 }
 
 #footer {
@@ -48,20 +54,24 @@ h1 {
     right: 0;
     padding-left: 100px;
     z-index: 1;
+    
 }
 
-#friend-table {
-    margin-top: 100px;
+.friend-table {
     table-layout: fixed;
+    width: 100%;
+    
 }
 
 td {
     margin-top: 22px;
     margin-bottom: 22px;
+    
 }
 
 #friend-table td:first-child {
     width: 100%;
+    
 }
 
 .check-cell {
@@ -70,6 +80,7 @@ td {
     width: 150px !important;
     min-width: 150px;
     max-width: 150px;
+    
 }
 
 .user-td {
@@ -77,29 +88,35 @@ td {
     margin-top: 1em;
     margin-left: 1em;
     margin-bottom: 1em;
+    
 }
 
 .bio {
     font-size: 0.9em;
     font-style: italic;
     overflow-wrap: anywhere;
+    
 }
 
 .name {
     font-size: 1.1em;
+    
 }
 
 @media (max-width: 500px) {
     #logout {
         height: auto;
+        
     }
 
     #header {
         padding-left: 10px;
         padding-right: 10px;
+        
     }
     #main {
         padding-bottom: 100px;
+        
     }
 }
 
@@ -108,6 +125,7 @@ td {
         padding-bottom: 100px;
         padding-left: 100px;
         padding-right: 50px;
+        
     }
 }
 
@@ -121,6 +139,7 @@ select {
     font-size: inherit;
     cursor: inherit;
     line-height: inherit;
+    
 }
 
 button {
@@ -128,11 +147,12 @@ button {
     margin: 0.3em 0.5em;
     font-size: 1em;
     cursor: pointer;
-    transition: background 0.15s;
+    
 }
 
 button:hover, button:focus {
     background: #e0e0e0;
+    
 }
 
 button:disabled,
@@ -141,5 +161,155 @@ button[disabled] {
     color: #b0b0b0 !important;
     cursor: not-allowed !important;
     opacity: 0.7;
+    
 }
 
+.accordion-summary {
+    padding: 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #ddd;
+    user-select: none;
+    
+}
+
+.accordion-summary.open {
+    border-bottom: 1px solid #ddd;
+    
+}
+
+.accordion-summary.closed {
+    border-bottom: none;
+    
+}
+
+.checkbox-them-checked {
+    width: 18px;
+    height: 18px;
+    accent-color: #8BC34A; /* lightGreen[600] */
+    
+}
+
+.checkbox-server-checked {
+    width: 18px;
+    height: 18px;
+    accent-color: #2196F3; /* blue[500] */
+    
+}
+
+.checkbox-default {
+    width: 18px;
+    height: 18px;
+    accent-color: #BBDEFB; /* blue[200] */
+    
+}
+
+.checkbox-disabled {
+    cursor: default;
+    
+}
+
+.checkbox-enabled {
+    cursor: pointer;
+    
+}
+
+.landing-examples {
+    margin-top: 20px;
+    
+}
+
+.example-section {
+    margin-bottom: 40px;
+    
+}
+
+.example-label {
+    display: block;
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #333;
+    
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.header-title-section h1 {
+    margin-bottom: 0;
+}
+
+.header-subtitle {
+    margin-bottom: 0;
+}
+
+.header-privacy-link {
+    padding-bottom: 50px;
+}
+
+.signed-in-text {
+    margin-top: 0.25em;
+    font-style: italic;
+}
+
+.profile-image {
+    border-radius: 50%;
+    margin-right: 0.25em;
+    margin-left: 0.5em;
+}
+
+.typing-cursor {
+    animation: blink 1s infinite;
+    font-weight: normal;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
+}
+
+/* Custom Modal Styles */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-container {
+    position: fixed;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: white;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 1501;
+}
+
+.modal-title {
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 1.5em;
+    color: #886B7C;
+}

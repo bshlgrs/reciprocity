@@ -2,7 +2,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List
-from sqlalchemy import create_engine, Text
+from sqlalchemy import create_engine, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import sessionmaker
@@ -38,6 +38,10 @@ class User(Base):
     dating_doc_link = Column(Text)
     custom_css: str
     custom_css = Column(Text)
+    has_logged_in_since_reboot: bool
+    has_logged_in_since_reboot = Column(
+        Boolean, nullable=False, default=False
+    )
 
     @staticmethod
     def find_or_create_by_fb_id(my_fb_id, name):

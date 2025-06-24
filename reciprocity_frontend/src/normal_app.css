@@ -71,6 +71,7 @@ h1 {
 #friend-table {
     margin-top: 100px;
     table-layout: fixed;
+    width: 100%;
 }
 
 td {

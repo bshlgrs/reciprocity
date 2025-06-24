@@ -1,101 +1,230 @@
 import './App.css';
 import React from 'react';
-import Checkbox from '@material-ui/core/Checkbox';
-import {withStyles} from '@material-ui/core/styles';
-import {lightGreen, blue} from '@material-ui/core/colors';
 import Immutable from 'immutable';
-import TextField from "@material-ui/core/TextField";
-import Accordion from "@material-ui/core/Accordion";
-import AccordionSummary from "@material-ui/core/AccordionSummary";
-import AccordionDetails from "@material-ui/core/AccordionDetails";
-import Popover from "@material-ui/core/Popover";
-import Typography from "@material-ui/core/Typography";
+// Custom Checkbox Component
+const StyledCheckbox = (props) => {
+  const {serverChecked, themChecked, checked, onChange, disabled} = props;
+  
+  const getCheckboxClassName = () => {
+    let className = '';
+    
+    if (themChecked) {
+      className = 'checkbox-them-checked';
+    } else if (serverChecked) {
+      className = 'checkbox-server-checked';
+    } else {
+      className = 'checkbox-default';
+    }
+    
+    className += disabled ? ' checkbox-disabled' : ' checkbox-enabled';
+    
+    return className;
+  };
 
-import { createTheme } from '@material-ui/core/styles'
-import { ThemeProvider } from '@material-ui/styles';
-const greenStyle = {
-  root: {
-    color: props => {
-      // debugger;
-      if (props.themChecked) {
-        return lightGreen[600];
-      } else {
-        if (props.serverChecked) {
-          return blue[500];
-        } else {
-          return blue[200];
-        }
-      }
-    },
-  },
-  checked: {},
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      disabled={disabled}
+      className={getCheckboxClassName()}
+    />
+  );
 };
 
-const theme = createTheme({
-  palette: {
-    action: {
-      disabledBackground: lightGreen[600],
-      // disabled: 'set color of text here'
-    },
-    secondary: {
-      main: '#886B7C',
-    }
+// Custom TextField Component
+const CustomTextField = (props) => {
+  const {fullWidth, multiline, value, onChange, placeholder, style, inputProps, ...otherProps} = props;
+  
+  const baseStyle = {
+    padding: '8px 12px',
+    border: '1px solid #886B7C',
+    borderRadius: '4px',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    outline: 'none',
+    ...(fullWidth && {width: '100%'}),
+    ...(style || {})
+  };
+
+  const focusStyle = {
+    borderColor: '#886B7C',
+    boxShadow: '0 0 0 2px rgba(136, 107, 124, 0.2)'
+  };
+
+  if (multiline) {
+    return (
+      <textarea
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        style={{...baseStyle, minHeight: '60px', resize: 'vertical'}}
+        {...inputProps}
+        {...otherProps}
+      />
+    );
   }
-});
 
-const StyledCheckbox = withStyles(greenStyle)((props) => {
-  const {serverChecked, themChecked, ...otherProps} = props;
-  return <Checkbox color="default" {...otherProps} />
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      style={baseStyle}
+      {...inputProps}
+      {...otherProps}
+    />
+  );
+};
 
-
-});
-
-
-const instructionAccordion = <Accordion style={{marginTop: '50px'}}>
-  <AccordionSummary
-      aria-controls="panel1a-content"
-      id="panel1a-header"
-  >
-    Show instructions
-  </AccordionSummary>
-  <AccordionDetails style={{display: 'block'}}>
-
-    <div>
-      Select things you would do with people.
-      ( <StyledCheckbox
-        checked={true}
-        themChecked={false}
-        serverChecked={false}/> = unsaved selection )
+// Custom Accordion Component
+const CustomAccordion = ({children, style}) => {
+  return (
+    <div style={{border: '1px solid #ddd', borderRadius: '4px', ...style}}>
+      {children}
     </div>
+  );
+};
 
-    <div>
-      Press
-      <button style={{marginLeft: "0.5em"}} >Save
-      </button>.
+const CustomAccordionSummary = ({children, onClick, isOpen}) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`accordion-summary ${isOpen ? 'open' : 'closed'}`}
+    >
+      <span style={{marginRight: '8px'}}>{isOpen ? '▼' : '▶'}</span>
+      {children}
     </div>
+  );
+};
 
-    <div>
-      Find out if they reciprocate.
-
-      ( <StyledCheckbox
-        checked={true}
-        themChecked={true}
-        serverChecked={true}/> = yes,
-      <StyledCheckbox
-          checked={true}
-          themChecked={false}
-          serverChecked={true}/> = no (yet) )
+const CustomAccordionDetails = ({children, isOpen}) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div style={{padding: '16px'}}>
+      {children}
     </div>
+  );
+};
 
-    <div>
-      If they never reciprocate, nobody knows you tried!
-    </div>
+// Custom Popover Component
+const CustomPopover = ({open, anchorEl, onClose, children, anchorOrigin, transformOrigin}) => {
+  if (!open || !anchorEl) return null;
 
-    <div>
-      If they do, you can do the thing!
-    </div>
-  </AccordionDetails>
-</Accordion>;
+  const rect = anchorEl.getBoundingClientRect();
+  const popoverStyle = {
+    position: 'fixed',
+    top: rect.bottom + 8,
+    left: rect.left,
+    backgroundColor: 'white',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    zIndex: 1000
+  };
+
+  return (
+    <>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'transparent',
+          zIndex: 999
+        }}
+        onClick={onClose}
+      />
+      <div style={popoverStyle}>
+        {children}
+      </div>
+    </>
+  );
+};
+
+// Custom Modal Component
+const CustomModal = ({open, onClose, children, title}) => {
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="modal-backdrop"
+        onClick={onClose}
+      />
+      <div
+        className="modal-container"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {title && (
+          <h2 className="modal-title">
+            {title}
+          </h2>
+        )}
+        {children}
+      </div>
+    </>
+  );
+};
+
+
+// Instructions Accordion Component
+const InstructionAccordion = () => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  
+  return (
+    <CustomAccordion style={{marginTop: '50px'}}>
+      <CustomAccordionSummary onClick={() => setIsOpen(!isOpen)} isOpen={isOpen}>
+        Show instructions
+      </CustomAccordionSummary>
+      <CustomAccordionDetails isOpen={isOpen}>
+        <div style={{display: 'block'}}>
+          <div>
+            Select things you would do with people.
+            ( <StyledCheckbox
+              checked={true}
+              readOnly={true}
+              themChecked={false}
+              serverChecked={false}/> = unsaved selection )
+          </div>
+
+          <div>
+            Press
+            <button style={{marginLeft: "0.5em"}} >Save
+            </button>.
+          </div>
+
+          <div>
+            Find out if they reciprocate.
+
+            ( <StyledCheckbox
+              checked={true}
+              readOnly={true}
+              themChecked={true}
+              serverChecked={true}/> = yes,
+            <StyledCheckbox
+                checked={true}
+                readOnly={true}
+                themChecked={false}
+                serverChecked={true}/> = no (yet) )
+          </div>
+
+          <div>
+            If they never reciprocate, nobody knows you tried!
+          </div>
+
+          <div>
+            If they do, you can do the thing!
+          </div>
+        </div>
+      </CustomAccordionDetails>
+    </CustomAccordion>
+  );
+};
 
 
 
@@ -121,8 +250,17 @@ class App extends React.Component {
       cssGenerationInstruction: '',
       isGeneratingCSS: false,
       streamOutput: '',
+      // Accordion states
+      userSettingsOpen: false,
+      designAccordionOpen: false,
+      // Modal state for first login since reboot
+      showWelcomeBackModal: false,
+      // Subtitle animation state
+      currentSubtitle: '',
+      isAnimatingSubtitle: false,
     }
     this.hueAnimationFrame = null;
+    this.subtitleAnimationTimeout = null;
   }
 
   componentDidMount() {
@@ -134,6 +272,41 @@ class App extends React.Component {
       }
     }, 100)
 
+    fetch('/api/get_tagline')
+      .then(response => response.text())
+      .then(data => {
+        this.setState({ currentSubtitle: data });
+      });
+
+    this.cssPollingInterval = window.setInterval(async () => {
+      if (this.state.isGeneratingCSS) return;
+      try {
+        const resp = await fetch('/api/global_css.css');
+        if (!resp.ok) throw new Error('Failed to fetch global CSS');
+        const data = await resp.text();
+        this.setState({ customCssState: data });
+        this.applyCustomCSS(data);
+
+        
+      } catch (err) {
+        alert('Error loading global custom CSS.');
+      }
+    }, 5000);
+
+    this.taglinePollingInterval = window.setInterval(async () => {
+      if (this.state.isAnimatingSubtitle) return;
+      try {
+        const resp = await fetch('/api/get_tagline');
+        if (!resp.ok) throw new Error('Failed to fetch tagline');
+        const data = await resp.text();
+        if (data && data !== this.state.currentSubtitle) {
+          this.animateSubtitleChange(data);
+        }
+      } catch (err) {
+        console.error('Error loading tagline:', err);
+      }
+    }, 5000);
+
   }
 
   componentWillUnmount() {
@@ -141,6 +314,18 @@ class App extends React.Component {
     this.stopHueAnimation();
     // Clean up custom CSS
     this.removeCustomCSS();
+    // Clean up subtitle animation
+    if (this.subtitleAnimationTimeout) {
+      clearTimeout(this.subtitleAnimationTimeout);
+    }
+    // Clean up CSS polling interval
+    if (this.cssPollingInterval) {
+      clearInterval(this.cssPollingInterval);
+    }
+    // Clean up tagline polling interval
+    if (this.taglinePollingInterval) {
+      clearInterval(this.taglinePollingInterval);
+    }
   }
 
 
@@ -172,9 +357,146 @@ class App extends React.Component {
     }
   }
 
+  startSubtitleBackspace() {
+    if (this.state.isAnimatingSubtitle) return;
+    
+    this.setState({ isAnimatingSubtitle: true });
+    
+    const originalSubtitle = this.state.currentSubtitle;
+    this.currentAnimationText = originalSubtitle;
+    this.pendingNewSubtitle = null;
+    
+    // Phase 1: Backspace the current subtitle
+    const backspaceInterval = 50; // ms between each character removal
+    
+    const backspace = () => {
+      if (this.currentAnimationText.length > 0) {
+        this.currentAnimationText = this.currentAnimationText.slice(0, -1);
+        this.setState({ currentSubtitle: this.currentAnimationText });
+        this.subtitleAnimationTimeout = setTimeout(backspace, backspaceInterval);
+      } else {
+        // Backspacing complete, check if we have a new subtitle ready
+        if (this.pendingNewSubtitle) {
+          this.startTypingNewSubtitle(this.pendingNewSubtitle);
+        } else {
+          // Wait for the new subtitle to arrive
+          this.waitingForNewSubtitle = true;
+        }
+      }
+    };
+    
+    // Start the backspace animation
+    this.subtitleAnimationTimeout = setTimeout(backspace, backspaceInterval);
+  }
+
+  continueWithNewSubtitle(newSubtitle) {
+    this.pendingNewSubtitle = newSubtitle;
+    
+    if (this.waitingForNewSubtitle) {
+      // Backspacing is already complete, start typing immediately
+      this.startTypingNewSubtitle(newSubtitle);
+      this.waitingForNewSubtitle = false;
+    }
+    // If we're still backspacing, the new subtitle will be used once backspacing completes
+  }
+
+  startTypingNewSubtitle(newSubtitle) {
+    const typeInterval = 80; // ms between each character addition
+    let charIndex = 0;
+    
+    const typeNextChar = () => {
+      if (charIndex < newSubtitle.length) {
+        this.currentAnimationText = newSubtitle.slice(0, charIndex + 1);
+        this.setState({ currentSubtitle: this.currentAnimationText });
+        charIndex++;
+        this.subtitleAnimationTimeout = setTimeout(typeNextChar, typeInterval);
+      } else {
+        // Animation complete
+        this.setState({ isAnimatingSubtitle: false });
+        this.waitingForNewSubtitle = false;
+        this.pendingNewSubtitle = null;
+      }
+    };
+    
+    this.subtitleAnimationTimeout = setTimeout(typeNextChar, typeInterval);
+  }
+
+  animateSubtitleChange(newSubtitle) {
+    if (this.state.isAnimatingSubtitle) return;
+    
+    this.setState({ isAnimatingSubtitle: true });
+    
+    const originalSubtitle = this.state.currentSubtitle;
+    let currentText = originalSubtitle;
+    
+    // Phase 1: Backspace the current subtitle
+    const backspaceInterval = 50; // ms between each character removal
+    const typeInterval = 80; // ms between each character addition
+    
+    const backspace = () => {
+      if (currentText.length > 0) {
+        currentText = currentText.slice(0, -1);
+        this.setState({ currentSubtitle: currentText });
+        this.subtitleAnimationTimeout = setTimeout(backspace, backspaceInterval);
+      } else {
+        // Phase 2: Type the new subtitle
+        let charIndex = 0;
+        const typeNextChar = () => {
+          if (charIndex < newSubtitle.length) {
+            currentText = newSubtitle.slice(0, charIndex + 1);
+            this.setState({ currentSubtitle: currentText });
+            charIndex++;
+            this.subtitleAnimationTimeout = setTimeout(typeNextChar, typeInterval);
+          } else {
+            // Animation complete
+            this.setState({ isAnimatingSubtitle: false });
+          }
+        };
+        this.subtitleAnimationTimeout = setTimeout(typeNextChar, typeInterval);
+      }
+    };
+    
+    // Start the backspace animation
+    this.subtitleAnimationTimeout = setTimeout(backspace, backspaceInterval);
+  }
+
   applyCustomCSS(cssString) {
 
     document.body.style.filter = '';
+
+    // Add 'transition: all 1s ease;' to every block of CSS currently affecting the DOM from a stylesheet
+
+    // Helper function to add transition to a CSSStyleRule
+    function addTransitionToRule(rule) {
+      try {
+        // Only add if not already present
+        if (!rule.style.transition || !rule.style.transition.includes('all 1s ease')) {
+          rule.style.setProperty('transition', 'all 1s ease');
+        }
+      } catch (e) {
+        // Some rules may be read-only or cross-origin, ignore those
+      }
+    }
+
+    // Iterate over all stylesheets in the document
+    for (let i = 0; i < document.styleSheets.length; i++) {
+      const sheet = document.styleSheets[i];
+      let rules;
+      try {
+        rules = sheet.cssRules || sheet.rules;
+      } catch (e) {
+        // Ignore cross-origin stylesheets
+        continue;
+      }
+      if (!rules) continue;
+      for (let j = 0; j < rules.length; j++) {
+        const rule = rules[j];
+        // Only process style rules (not @media, @font-face, etc.)
+        if (rule.type === CSSRule.STYLE_RULE) {
+          addTransitionToRule(rule);
+        }
+      }
+    }
 
     // Remove existing custom CSS if it exists
     this.removeCustomCSS();
@@ -203,34 +525,159 @@ class App extends React.Component {
         });
   }
 
+  dismissWelcomeBackModal() {
+    // Update the server to mark that user has logged in since reboot
+    fetch('/api/mark_logged_in_since_reboot?access_token=' + this.state.accessToken, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    }).then(() => {
+      this.setState({ showWelcomeBackModal: false });
+    }).catch(error => {
+      console.error('Failed to update login status:', error);
+      // Still close the modal even if the API call fails
+      this.setState({ showWelcomeBackModal: false });
+    });
+  }
+
   render() {
     return <div className="app">
       <div id='header'>
-        <div id='logout'>{this.state.myInfo &&
-        <div>
-          <button onClick={() => window.FB.logout(() => window.location.reload())} >Log
-            out</button>
-          {/*<Button onClick={() => this.deleteAccount()}>Delete account</Button>*/}
-          <div style={{marginTop: "0.25em", fontStyle: 'italic'}}><span
-              className="highlight-color">Signed in as</span>
-            <img height={25} width={25} alt={`Your profile pic`}
-                 style={{borderRadius: "50%", marginRight: '.25em', marginLeft: '.5em'}}
-                 src={this.state.myProfilePicUrl}/>
-            {this.state.myInfo.name}</div>
-        </div>}</div>
-        <h1>reciprocity.pro</h1>
-        <div className="subtitle">
-          what would you do, if they wanted to too?
+        <div className="header-content">
+          <div className="header-title-section">
+            <h1>reciprocity.pro</h1>
+            <div className="subtitle header-subtitle">
+              {this.state.currentSubtitle}
+              {this.state.isAnimatingSubtitle && <span className="typing-cursor">|</span>}
+            </div>
+            <div className="header-privacy-link"><a href={'/privacy_policy.txt'}>privacy policy</a></div>
+          </div>
+          <div id='logout'>
+            {this.state.myInfo &&
+              <div>
+                <button onClick={() => window.FB.logout(() => window.location.reload())} >Log out</button>
+                {/*<Button onClick={() => this.deleteAccount()}>Delete account</Button>*/}
+                <div className="signed-in-text">
+                  <span className="highlight-color">Signed in as</span>
+                  <img height={25} width={25} alt={`Your profile pic`}
+                       className="profile-image"
+                       src={this.state.myProfilePicUrl}/>
+                  {this.state.myInfo.name}
+                </div>
+              </div>
+            }
+          </div>
         </div>
-        <div style={{paddingBottom: '50px'}}><a href={'/privacy_policy.txt'}>privacy policy</a></div>
+      </div>
 
 
-        {!this.state.myInfo &&
+      {!this.state.myInfo &&
         <div id='main'>
-          <div>
-            <div>You check boxes</div>
-            <div>Your friends check boxes</div>
-            <div>You see when you've checked each other's boxes</div>
+          <div className="landing-examples">
+            <div className="example-section">
+              <span className="example-label">You check boxes</span>
+
+              <table className="friend-table">
+                <thead>
+                  <tr>
+                    <td style={{paddingLeft: '20px'}}><h3>People</h3></td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div className="user-td">
+                        <div>
+                          <div className="name">Claire
+                          </div>
+                          <div className="bio">Married, poly. Berkeley-based. Interested in
+                            low-commitment dates and flings. </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="check-cell"><input type="checkbox"
+                      checked={false} /></td>
+                    <td className="check-cell"><input type="checkbox"
+                      className="checkbox-server-checked" checked="true" /></td>
+                    <td className="check-cell"><input type="checkbox"
+                      className="checkbox-server-checked" checked="true" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="example-section">
+              <span className="example-label">Your friends check boxes</span>
+
+              <table className="friend-table">
+                <thead>
+                  <tr>
+                    <td style={{paddingLeft: '20px'}}><h3>People</h3></td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div className="user-td">
+                        <div>
+                          <div className="name">Buck</div>
+                          <div className="bio">Friendly and pleasant, looking for cute dates!</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="check-cell"><input type="checkbox"
+                      checked={true} className="checkbox-server-checked" /></td>
+                    <td className="check-cell"><input type="checkbox"
+                      className="checkbox-server-checked" checked="true" /></td>
+                    <td className="check-cell"><input type="checkbox"
+                       checked={false} /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="example-section">
+              <span className="example-label">You see when you've checked each other's boxes</span>
+
+              <table className="friend-table">
+                <thead>
+                  <tr>
+                    <td style={{paddingLeft: '20px'}}><h3>People</h3></td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
+                    <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div className="user-td">
+                        <div>
+                            <div className="name">Claire
+                          </div>
+                          <div className="bio">Married, poly. Berkeley-based. Interested in
+                          low-commitment dates and flings.  </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="check-cell"><input type="checkbox"
+                      checked={false} /></td>
+                    <td className="check-cell"><input type="checkbox"
+                      className="checkbox-them-checked" checked="true" /></td>
+                    <td className="check-cell"><input type="checkbox"
+                      className="checkbox-server-checked" checked="true" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           <button 
             disabled={this.state.loggingIn} 
@@ -242,25 +689,25 @@ class App extends React.Component {
           >
             {this.state.loggingIn ? "Logging in..." : "Log in with Facebook"}
           </button>
-        </div>}</div>
+        </div>}
+            
       {this.state.myInfo && <div>
         <div id='main'>
-          {instructionAccordion}
+          <InstructionAccordion />
           
-          <Accordion style={{marginTop: '30px'}}>
-            <AccordionSummary
-                aria-controls="panel2a-content"
-                id="panel2a-header"
+          <CustomAccordion style={{marginTop: '30px'}}>
+            <CustomAccordionSummary 
+              onClick={() => this.setState({userSettingsOpen: !this.state.userSettingsOpen})} 
+              isOpen={this.state.userSettingsOpen}
             >
               User Settings
-            </AccordionSummary>
-            <AccordionDetails style={{display: 'block'}}>
-              <div><h3 style={{fontSize: '1.1em'}}>Bio</h3>
+            </CustomAccordionSummary>
+            <CustomAccordionDetails isOpen={this.state.userSettingsOpen}>
+              <div style={{display: 'block'}}>
+                              <div><h3 style={{fontSize: '1.1em'}}>Bio</h3>
                 <div><small>e.g. 'I don't use this for dating, and I'm mostly looking for female friends'</small></div>
-                <ThemeProvider theme={theme}>
-                <div><TextField color="secondary" fullWidth multiline value={this.state.bioState || ""}
+                <div><CustomTextField fullWidth multiline value={this.state.bioState || ""}
                                 onChange={(e) => this.setState({bioState: e.target.value})}/></div>
-                </ThemeProvider>
                 
                 <div style={{
                   color: (this.state.bioState || "").length > 300 ? "#d32f2f" : "#B6AAA2", 
@@ -288,13 +735,13 @@ class App extends React.Component {
                     value={this.state.myVisibilitySetting} 
                     onChange={(e) => this.updateVisibility(e.target.value)}
                   >
-                    <option value='invisible'>Invisible to everyone</option>
-                    <option value='friends'>Visible just to Reciprocity users who are my Facebook friends</option>
-                    <option value='everyone'>Visible to everyone on Reciprocity who has checked this option, and also my friends</option>
+                    <option value='invisible'>🙈 Invisible to everyone</option>
+                    <option value='everyone'>🌐 Recommended: Visible to everyone on Reciprocity who has checked this option, and also my friends</option>
+                    <option value='friends'>👥 Visible just to Reciprocity users who are my Facebook friends</option>
                   </select>
                 </div>
                 
-                <Popover
+                <CustomPopover
                   open={Boolean(this.state.visibilityWarningAnchor)}
                   anchorEl={this.state.visibilityWarningAnchor}
                   onClose={() => this.setState({visibilityWarningAnchor: null})}
@@ -308,14 +755,14 @@ class App extends React.Component {
                   }}
                 >
                   <div style={{padding: '20px', maxWidth: '400px', backgroundColor: 'rgb(255 160 154)'}}>
-                    <Typography variant="body2">
+                    <div style={{fontSize: '14px'}}>
                       Facebook is unreliable about providing a full list of your friends. 
                       So if you choose the "visible just to reciprocity users who are my Facebook friends" option, 
                       you might not see some of your friends who have Reciprocity accounts, and they might also not see you.
                       The official recommendation of reciprocity.pro is to select the "visible to everyone" option.
-                    </Typography>
+                    </div>
                   </div>
-                </Popover>
+                </CustomPopover>
               </div>
                 
             <div style={{paddingTop: '30px'}}>
@@ -326,16 +773,13 @@ class App extends React.Component {
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px'}}>
                 <label style={{fontWeight: 'bold', fontSize: '1.1em'}}>Phone Number:</label>
-                <ThemeProvider theme={theme}>
-                  <TextField
-                    color="secondary"
-                    style={{width: '200px'}}
-                    value={this.state.phoneNumberState !== undefined ? this.state.phoneNumberState : (this.state.myInfo.phone_number || "")}
-                    onChange={(e) => this.setState({phoneNumberState: e.target.value})}
-                    placeholder="Enter your phone number"
-                    inputProps={{ maxLength: 20 }}
-                  />
-                </ThemeProvider>
+                <CustomTextField
+                  style={{width: '200px'}}
+                  value={this.state.phoneNumberState !== undefined ? this.state.phoneNumberState : (this.state.myInfo.phone_number || "")}
+                  onChange={(e) => this.setState({phoneNumberState: e.target.value})}
+                  placeholder="Enter your phone number"
+                  inputProps={{ maxLength: 20 }}
+                />
               </div>
               <div style={{
                 color: ((this.state.phoneNumberState !== undefined ? this.state.phoneNumberState : (this.state.myInfo.phone_number || "")).length > 20) ? "#d32f2f" : "#B6AAA2", 
@@ -354,16 +798,13 @@ class App extends React.Component {
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px'}}>
                 <label style={{fontWeight: 'bold', fontSize: '1.1em'}}>Dating Doc Link:</label>
-                <ThemeProvider theme={theme}>
-                  <TextField
-                    color="secondary"
-                    style={{width: '300px'}}
-                    value={this.state.datingDocLinkState !== undefined ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")}
-                    onChange={(e) => this.setState({datingDocLinkState: e.target.value})}
-                    placeholder="Enter URL (e.g., https://docs.google.com/...)"
-                    inputProps={{ maxLength: 500 }}
-                  />
-                </ThemeProvider>
+                <CustomTextField
+                  style={{width: '300px'}}
+                  value={this.state.datingDocLinkState !== undefined ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")}
+                  onChange={(e) => this.setState({datingDocLinkState: e.target.value})}
+                  placeholder="Enter URL (e.g., https://docs.google.com/...)"
+                  inputProps={{ maxLength: 500 }}
+                />
               </div>
               <div style={{
                 color: ((this.state.datingDocLinkState ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")).length > 500) ? "#d32f2f" : "#B6AAA2", 
@@ -374,7 +815,7 @@ class App extends React.Component {
               </div>
             </div>
 
-            <div style={{paddingTop: '30px'}}>
+            {/* <div style={{paddingTop: '30px'}}>
               <div style={{display: 'flex', gap: '10px', marginTop: '1em'}}>
                 <button
                   style={{marginTop: '1em', background: '#dc3545'}}
@@ -383,7 +824,7 @@ class App extends React.Component {
                   Clear custom style
                 </button>
               </div>
-            </div>
+            </div> */}
 
             <div style={{paddingTop: '30px', textAlign: 'center', borderTop: '1px solid #ddd', marginTop: '30px'}}>
               <button
@@ -394,17 +835,19 @@ class App extends React.Component {
                 Save Changes
               </button>
             </div>
-            </AccordionDetails>
-          </Accordion>
+              </div>
+            </CustomAccordionDetails>
+          </CustomAccordion>
           
-          <Accordion style={{marginTop: '30px'}}>
-            <AccordionSummary
-                aria-controls="panel3a-content"
-                id="panel3a-header"
+          <CustomAccordion style={{marginTop: '30px'}}>
+            <CustomAccordionSummary
+              onClick={() => this.setState({designAccordionOpen: !this.state.designAccordionOpen})}
+              isOpen={this.state.designAccordionOpen}
             >
-              Do you have a problem with the graphic design of this website
-            </AccordionSummary>
-            <AccordionDetails style={{display: 'block'}}>
+              Do you have a problem with the graphic design of this website?
+            </CustomAccordionSummary>
+            <CustomAccordionDetails isOpen={this.state.designAccordionOpen}>
+              <div style={{display: 'block'}}>
               <div style={{marginBottom: '20px', fontSize: '1.1em'}}>
                 Ok, well what did you want?
               </div>
@@ -423,8 +866,17 @@ class App extends React.Component {
                   }}
                   value={this.state.cssGenerationInstruction}
                   onChange={(e) => this.setState({cssGenerationInstruction: e.target.value})}
-                  placeholder="the kind of style that was cool in 2004"
                   disabled={this.state.isGeneratingCSS}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Enter' &&
+                      !this.state.isGeneratingCSS &&
+                      this.state.cssGenerationInstruction.trim()
+                    ) {
+                      e.preventDefault();
+                      this.generateCustomCSS();
+                    }
+                  }}
                 />
                 <div style={{display: 'flex', gap: '10px'}}>
                   <button
@@ -432,13 +884,14 @@ class App extends React.Component {
                     disabled={this.state.isGeneratingCSS || !this.state.cssGenerationInstruction.trim()}
                     
                   >
-                    {this.state.isGeneratingCSS ? 'considering...' : 'redesign website'}
+                    {this.state.isGeneratingCSS ? 'redesigning...' : 'redesign website'}
                   </button>
                 </div>
                 
               </div>
-            </AccordionDetails>
-          </Accordion>
+                </div>
+            </CustomAccordionDetails>
+          </CustomAccordion>
           
           <div>
             {this.state.myVisibilitySetting == 'invisible' ? <p>Set your visibility to something other than 'invisible' in order to see people!</p> :
@@ -458,12 +911,78 @@ class App extends React.Component {
           <button onClick={() => this.submit()}>
             Submit checks
           </button>
+
+        
+
         </div>
       </div>}
+
+            {/* Welcome Back Modal */}
+      <CustomModal
+        open={this.state.showWelcomeBackModal}
+        onClose={() => this.dismissWelcomeBackModal()}
+        title="Welcome back to Reciprocity!"
+      >
+        <div style={{lineHeight: '1.6'}}>
+          <p style={{marginBottom: '16px'}}>
+            👋 Hey there! We've made some changes since you last logged in.
+          </p>
+          <p style={{marginBottom: '16px'}}>
+            Here's what's happening:
+          </p>
+          <ul style={{marginBottom: '20px', paddingLeft: '20px'}}>
+            <li style={{marginBottom: '8px'}}>It's a new Reciprocity era, so I've removed all previous checks and user data.</li>
+            <li style={{marginBottom: '8px'}}>I have made everyone's profiles private by default. So if you want other people to see you, or to see other people, you'll need to update this in your user settings.</li>
+            <li style={{marginBottom: '8px'}}>Dating docs are now directly supported.</li>
+            <li style={{marginBottom: '8px'}}>You can add your phone number to your profile, and we'll send you text notifications when you match with someone.</li>
+            <li style={{marginBottom: '8px'}}>I've hopefully found a permanent solution to people sending me suggestions for how the graphic design could be improved.</li>
+          </ul>
+          <p style={{marginBottom: '20px'}}>
+            Thanks for being part of the Reciprocity community! 💕
+          </p>
+          <div style={{textAlign: 'center'}}>
+            <button
+              onClick={() => this.dismissWelcomeBackModal()}
+              style={{
+                padding: '10px 20px',
+                fontSize: '16px',
+                backgroundColor: '#886B7C',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Got it, thanks!
+            </button>
+          </div>
+        </div>
+      </CustomModal>
     </div>
   }
 
   async generateCustomCSS() {
+    // Start backspacing immediately
+    this.startSubtitleBackspace();
+    
+    fetch(`/api/generate_tagline?access_token=${this.state.accessToken}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        instruction: this.state.cssGenerationInstruction
+      })
+    }).then(response => response.text())
+        .then((data) => {
+          console.log(data);
+          // Continue with the new subtitle
+          if (data && data.trim()) {
+            this.continueWithNewSubtitle(data.trim());
+          }
+        });
+
     if (!this.state.cssGenerationInstruction.trim()) {
       this.setState({ 
         streamOutput: '❌ Please enter an instruction first\n' 
@@ -507,10 +1026,6 @@ class App extends React.Component {
         throw new Error('No session ID received');
       }
 
-      this.setState(prevState => ({
-        streamOutput: prevState.streamOutput + `✅ Generation started! Session: ${sessionId.substring(0, 8)}...\n🔄 Polling for updates every 2 seconds...\n\n`
-      }));
-
       // Step 2: Poll for updates
       let pollCount = 0;
       let totalContent = '';
@@ -526,6 +1041,8 @@ class App extends React.Component {
           
           const pollData = await pollResponse.json();
           const { content, done, error } = pollData;
+
+          console.log(content);
           
           if (error) {
             this.setState(prevState => ({
@@ -608,7 +1125,7 @@ class App extends React.Component {
             this.applyCustomCSS(lastCss);
           }
           // Continue polling if not done
-          setTimeout(pollForUpdates, 2000);
+          setTimeout(pollForUpdates, 600);
           
         } catch (error) {
           this.setState(prevState => ({
@@ -767,35 +1284,17 @@ class App extends React.Component {
   fetchInfo() {
     fetch('/api/info?access_token=' + this.state.accessToken).then(response => response.json())
           .then(data => {
-            const [myInfo, friendsList, friendPictures, myChecks, reciprocations, myProfilePicUrl] = data;
+            let [myInfo, firstLogin, friendsList, friendPictures, myChecks, reciprocations, myProfilePicUrl] = data;
             const myVisibilitySetting = myInfo.visibility_setting;
-            
-            // For testing: randomly add dating doc links to half the friends
-            const testDatingDocs = [
-              'https://docs.google.com/document/d/1abc123/edit',
-              'https://docs.google.com/document/d/1def456/edit',
-              'https://docs.google.com/document/d/1ghi789/edit',
-              'https://docs.google.com/document/d/1jkl012/edit',
-              'https://docs.google.com/document/d/1mno345/edit',
-              'https://docs.google.com/document/d/1pqr678/edit',
-              'https://docs.google.com/document/d/1stu901/edit',
-              'https://docs.google.com/document/d/1vwx234/edit'
-            ];
-            
-            const friendsListWithTestDatingDocs = friendsList.map(friend => {
-              // Randomly assign dating docs to ~50% of friends
-              if (Math.random() > 0.5) {
-                const randomDoc = testDatingDocs[Math.floor(Math.random() * testDatingDocs.length)];
-                return { ...friend, dating_doc_link: randomDoc };
-              }
-              return friend;
-            });
-            
+
             const myChecksParsed = Immutable.Map(myChecks).mapEntries(([idStr, x]) =>
                 [parseInt(idStr), Immutable.Set(x)])
 
+            // Check if we should show the welcome back modal
+            const shouldShowWelcomeBackModal = firstLogin;
+
             this.setState({
-              friendsList: friendsListWithTestDatingDocs,
+              friendsList: friendsList,
               friendPictures: friendPictures,
               myInfo: myInfo,
               myChecks: myChecksParsed,
@@ -808,8 +1307,9 @@ class App extends React.Component {
               myVisibilitySetting: myVisibilitySetting,
               nameFilter: '',
               updatingVisibility: false,
+              showWelcomeBackModal: shouldShowWelcomeBackModal,
             });
-            
+
             // Apply custom CSS if it exists
             if (myInfo.custom_css) {
               this.applyCustomCSS(myInfo.custom_css);
@@ -887,7 +1387,7 @@ class FriendsListView extends React.Component {
 
     return (
         <div>
-          <table id='friend-table'>
+          <table style={{ marginTop: '100px' }} className='friend-table'>
             <thead>
             <tr>
               <td style={{paddingLeft: '20px'}}><h3>People</h3>
@@ -941,7 +1441,7 @@ class FriendsListView extends React.Component {
     const currentChecksState = this.props.currentChecksState;
     const QUESTION_MARK = "https://upload.wikimedia.org/wikipedia/commons/d/d9/Icon-round-Question_mark.svg";
     const picUrl = this.props.friendPictures[fb_id]?.data?.url;
-    // debugger;
+    
     return <tr key={idx}>
       <td>
         <div className='user-td'>
@@ -957,9 +1457,9 @@ class FriendsListView extends React.Component {
                     textDecoration: 'none'
                   }}
                   onClick={() => window.open(friend.dating_doc_link, '_blank')}
-                  title="Open dating doc"
+                  title="Open date me doc"
                 >
-                  ℹ️
+                  🔗
                 </span>
               )}
             </div>
