@@ -2,10 +2,11 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List
-from sqlalchemy import create_engine, Text, Boolean
+from sqlalchemy import create_engine, Text, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import sessionmaker
+from datetime import datetime
 
 
 # Fix DATABASE_URL format for compatibility with newer SQLAlchemy versions
@@ -98,3 +99,37 @@ class Check(Base):
     from_id = Column(Integer)
     to_id = Column(Integer)
     activity = Column(String)
+
+
+@dataclass
+class TaglineLog(Base):
+    __tablename__ = 'tagline_logs'
+    id: int
+    id = Column(Integer, primary_key=True)
+    timestamp: datetime
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    user_id: int
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_name: str
+    user_name = Column(String, nullable=False)
+    instruction: str
+    instruction = Column(Text, nullable=False)
+    generated_tagline: str
+    generated_tagline = Column(Text, nullable=False)
+
+
+@dataclass 
+class CssLog(Base):
+    __tablename__ = 'css_logs'
+    id: int
+    id = Column(Integer, primary_key=True)
+    timestamp: datetime
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    user_id: int
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_name: str
+    user_name = Column(String, nullable=False)
+    instruction: str
+    instruction = Column(Text, nullable=False)
+    generated_css: str
+    generated_css = Column(Text, nullable=False)

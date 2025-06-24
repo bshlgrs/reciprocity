@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 import requests
 import anthropic
-from models import User, ses, Check
+from models import User, ses, Check, TaglineLog, CssLog
 from sqlalchemy import and_, or_
 from css_sanitizer import sanitize_css
 
@@ -74,6 +74,17 @@ def api_generate_tagline():
 
     global global_tagline
     global_tagline = match.group(1).strip()
+    
+    # Log the tagline generation
+    tagline_log = TaglineLog(
+        user_id=current_user.id,
+        user_name=current_user.name,
+        instruction=instruction,
+        generated_tagline=global_tagline
+    )
+    ses.add(tagline_log)
+    ses.commit()
+    
     return global_tagline
 
 @app.route("/api/get_tagline")
@@ -361,6 +372,10 @@ def api_generate_css():
             'error': None
         }
 
+    # Capture user info for the background thread
+    user_id = current_user.id
+    user_name = current_user.name
+    
     other_chunk_list = []
     
     def generate_css_background():
@@ -392,9 +407,40 @@ def api_generate_css():
             global global_custom_css
 
             with global_css_lock:
-                # Sanitize the generated CSS to remove any potentially dangerous content
-                raw_css = "".join(other_chunk_list)
-                global_custom_css = sanitize_css(raw_css, strict_mode=False)
+                # Join all chunks to get the complete response
+                raw_response = "".join(other_chunk_list)
+                
+                # Extract CSS from markdown code blocks
+                import re
+                css_match = re.search(r'```(?:css)?\s*\n(.*?)\n```', raw_response, re.DOTALL | re.IGNORECASE)
+                if css_match:
+                    extracted_css = css_match.group(1).strip()
+                else:
+                    # Fallback: try to extract anything that looks like CSS
+                    # Look for content between { and } which is likely CSS
+                    if '{' in raw_response and '}' in raw_response:
+                        extracted_css = raw_response
+                    else:
+                        extracted_css = ""
+                
+                print(f"DEBUG: Raw response length: {len(raw_response)}")
+                print(f"DEBUG: Extracted CSS length: {len(extracted_css)}")
+                print(f"DEBUG: First 200 chars of extracted CSS: {extracted_css[:200]}")
+                
+                # Sanitize the extracted CSS
+                global_custom_css = sanitize_css(extracted_css, strict_mode=False)
+                
+                print(f"DEBUG: Sanitized CSS length: {len(global_custom_css)}")
+                
+                # Log the CSS generation
+                css_log = CssLog(
+                    user_id=user_id,
+                    user_name=user_name,
+                    instruction=instruction,
+                    generated_css=global_custom_css  # Log what actually gets used by the app
+                )
+                ses.add(css_log)
+                ses.commit()
         except Exception as e:
             # Store error
             with chunks_lock:
@@ -434,6 +480,74 @@ def api_poll_css(session_id):
             del user_chunks[session_id]
         
         return jsonify(response_data)
+
+
+@app.route("/api/logs/taglines", methods=["GET"])
+def api_get_tagline_logs():
+    """Get recent tagline generation logs"""
+    # Validate user
+    access_token = request.args.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Access token required"}), 401
+    
+    try:
+        current_user = get_current_user(access_token)
+    except Exception as e:
+        return jsonify({"error": "Invalid access token"}), 401
+    
+    # Get limit parameter (default to 50, max 200)
+    limit = min(int(request.args.get("limit", 50)), 200)
+    
+    # Get recent tagline logs
+    logs = ses.query(TaglineLog).order_by(TaglineLog.timestamp.desc()).limit(limit).all()
+    
+    # Convert to dictionaries for JSON serialization
+    logs_data = []
+    for log in logs:
+        logs_data.append({
+            'id': log.id,
+            'timestamp': log.timestamp.isoformat(),
+            'user_id': log.user_id,
+            'user_name': log.user_name,
+            'instruction': log.instruction,
+            'generated_tagline': log.generated_tagline
+        })
+    
+    return jsonify(logs_data)
+
+
+@app.route("/api/logs/css", methods=["GET"])
+def api_get_css_logs():
+    """Get recent CSS generation logs"""
+    # Validate user
+    access_token = request.args.get("access_token")
+    if not access_token:
+        return jsonify({"error": "Access token required"}), 401
+    
+    try:
+        current_user = get_current_user(access_token)
+    except Exception as e:
+        return jsonify({"error": "Invalid access token"}), 401
+    
+    # Get limit parameter (default to 50, max 200)
+    limit = min(int(request.args.get("limit", 50)), 200)
+    
+    # Get recent CSS logs
+    logs = ses.query(CssLog).order_by(CssLog.timestamp.desc()).limit(limit).all()
+    
+    # Convert to dictionaries for JSON serialization
+    logs_data = []
+    for log in logs:
+        logs_data.append({
+            'id': log.id,
+            'timestamp': log.timestamp.isoformat(),
+            'user_id': log.user_id,
+            'user_name': log.user_name,
+            'instruction': log.instruction,
+            'generated_css': log.generated_css[:500] + '...' if len(log.generated_css) > 500 else log.generated_css  # Truncate long CSS for overview
+        })
+    
+    return jsonify(logs_data)
 
 
 @app.errorhandler(500)
