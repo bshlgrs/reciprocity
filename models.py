@@ -44,6 +44,8 @@ class User(Base):
     dating_doc_link = Column(Text)
     custom_css: str
     custom_css = Column(Text)
+    private_contact_info: str
+    private_contact_info = Column(Text, nullable=False, default="")
     has_logged_in_since_reboot: bool
     has_logged_in_since_reboot = Column(
         Boolean, nullable=False, default=False

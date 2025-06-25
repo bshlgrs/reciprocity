@@ -168,12 +168,14 @@ def api_info():
         'phone_number': current_user.phone_number,
         'dating_doc_link': current_user.dating_doc_link,
         'custom_css': current_user.custom_css,
+        'private_contact_info': current_user.private_contact_info,
         'has_logged_in_since_reboot': current_user.has_logged_in_since_reboot
     }
     
     friend_objects_dicts = []
     for friend in friend_objects:
-        friend_objects_dicts.append({
+        # Only include private contact info if this user has reciprocal matches with the friend
+        friend_dict = {
             'id': friend.id,
             'name': friend.name,
             'fb_id': friend.fb_id,
@@ -183,7 +185,15 @@ def api_info():
             'dating_doc_link': friend.dating_doc_link,
             'custom_css': friend.custom_css,
             'has_logged_in_since_reboot': friend.has_logged_in_since_reboot
-        })
+        }
+        
+        # Only add private contact info if there are reciprocal matches with this friend
+        if friend.id in reciprocations and len(reciprocations[friend.id]) > 0:
+            friend_dict['private_contact_info'] = friend.private_contact_info
+        else:
+            friend_dict['private_contact_info'] = ""
+            
+        friend_objects_dicts.append(friend_dict)
 
     # Commit after all data has been gathered
     if first_time_logging_in:
@@ -331,6 +341,9 @@ def api_update_user():
     if "dating_doc_link" in updated_info and updated_info["dating_doc_link"] is not None:
         assert len(updated_info["dating_doc_link"]) <= 500
         current_user.dating_doc_link = updated_info["dating_doc_link"]
+    if "private_contact_info" in updated_info:
+        assert len(updated_info["private_contact_info"]) <= 1000
+        current_user.private_contact_info = updated_info["private_contact_info"]
     if "custom_css" in updated_info:
         custom_css = updated_info["custom_css"]
         if custom_css is not None:

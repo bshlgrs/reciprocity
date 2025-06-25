@@ -289,6 +289,7 @@ class App extends React.Component {
       myProfilePicUrl: null,
       loggingIn: false,
       myVisibilitySetting: null,
+      privateContactInfoState: undefined,
       nameFilter: '',
       updatingVisibility: false,
       hueRotation: 0,
@@ -916,7 +917,7 @@ class App extends React.Component {
                 </CustomPopover>
               </div>
                 
-            <div style={{paddingTop: '30px'}}>
+            {/* <div style={{paddingTop: '30px'}}>
               <div>
                 <small>
                   By entering your number, you agree to receive text notifications when you match with someone.
@@ -939,7 +940,7 @@ class App extends React.Component {
               }}>
                 {(this.state.phoneNumberState !== undefined ? this.state.phoneNumberState : (this.state.myInfo.phone_number || "")).length}/20
               </div>
-            </div>
+            </div> */}
 
             <div style={{paddingTop: '30px'}}>
               <div>
@@ -947,8 +948,8 @@ class App extends React.Component {
                   Link to your dating doc or profile (optional).
                 </small>
               </div>
-              <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px'}}>
-                <label style={{fontWeight: 'bold', fontSize: '1.1em'}}>Dating Doc Link:</label>
+              <div >
+                <div><label style={{fontWeight: 'bold', fontSize: '1.1em'}}>Dating Doc Link:</label></div>
                 <CustomTextField
                   style={{width: '300px'}}
                   value={this.state.datingDocLinkState !== undefined ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")}
@@ -963,6 +964,34 @@ class App extends React.Component {
                 marginTop: '5px'
               }}>
                 {(this.state.datingDocLinkState ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")).length}/500
+              </div>
+            </div>
+
+            <div style={{paddingTop: '30px'}}>
+              
+              <div style={{marginTop: '10px'}}>
+                <label style={{fontWeight: 'bold', fontSize: '1.1em'}}>Private Contact Info:</label>
+                <div>
+                <small>
+                  This info will only be visible to people you've matched with. Great for sharing social media handles, other ways to reach you, etc.
+                </small>
+              </div>
+                <CustomTextField
+                  style={{
+                    width: window.innerWidth < 600 ? '90%' : '400px'
+                  }}
+                  value={this.state.privateContactInfoState !== undefined ? this.state.privateContactInfoState : (this.state.myInfo.private_contact_info || "")}
+                  onChange={(e) => this.setState({privateContactInfoState: e.target.value})}
+                  placeholder="Email me at foo@bar.com or text at 123-456-7890"
+                  inputProps={{ maxLength: 100 }}
+                />
+              </div>
+              <div style={{
+                color: ((this.state.privateContactInfoState !== undefined ? this.state.privateContactInfoState : (this.state.myInfo.private_contact_info || "")).length > 100) ? "#d32f2f" : "#B6AAA2", 
+                fontSize: "0.9em", 
+                marginTop: '5px'
+              }}>
+                {(this.state.privateContactInfoState !== undefined ? this.state.privateContactInfoState : (this.state.myInfo.private_contact_info || "")).length}/100
               </div>
             </div>
 
@@ -1346,6 +1375,11 @@ class App extends React.Component {
       changes.custom_css = this.state.customCssState;
     }
     
+    if (this.state.privateContactInfoState !== undefined && 
+        this.state.privateContactInfoState !== (this.state.myInfo.private_contact_info || "")) {
+      changes.private_contact_info = this.state.privateContactInfoState;
+    }
+    
     // Only make the API call if there are actual changes
     if (Object.keys(changes).length > 0) {
       this.changeMyInfo(changes);
@@ -1384,6 +1418,15 @@ class App extends React.Component {
         this.state.customCssState !== (this.state.myInfo.custom_css || "")) {
       // Also check if custom CSS is within length limit
       if ((this.state.customCssState || "").length <= 20000) {
+        return true;
+      }
+    }
+    
+    // Check if private contact info has changed
+    if (this.state.privateContactInfoState !== undefined && 
+        this.state.privateContactInfoState !== (this.state.myInfo.private_contact_info || "")) {
+      // Also check if private contact info is within length limit
+      if ((this.state.privateContactInfoState || "").length <= 1000) {
         return true;
       }
     }
@@ -1462,6 +1505,7 @@ class App extends React.Component {
               bioState: myInfo.bio,
               datingDocLinkState: myInfo.dating_doc_link,
               customCssState: myInfo.custom_css,
+              privateContactInfoState: myInfo.private_contact_info,
               myProfilePicUrl: myProfilePicUrl,
               myVisibilitySetting: myVisibilitySetting,
               nameFilter: '',
@@ -1639,6 +1683,20 @@ class FriendsListView extends React.Component {
                 .map((part, idx) =>
                   urlRegex.test(part) ? <a key={idx} href={part}>{part} </a> : part + " "
                 )}</span>
+            
+            {/* Show private contact info if user has matched with this friend */}
+            {friend.private_contact_info && this.props.reciprocations.get(id, Set()).size > 0 && (
+              <div style={{
+                marginTop: '8px',
+                padding: '8px',
+                backgroundColor: '#f0f8ff',
+                borderLeft: '3px solid #886B7C',
+                fontSize: '0.9em',
+                fontStyle: 'italic'
+              }}>
+                <strong>Contact info:</strong> {friend.private_contact_info}
+              </div>
+            )}
           </div>
 
         </div>
