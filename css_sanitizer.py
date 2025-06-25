@@ -74,7 +74,7 @@ class CSSSanitizer:
         
         # Misc safe properties
         'cursor', 'outline', 'outline-color', 'outline-style', 'outline-width',
-        'list-style', 'list-style-type', 'list-style-position', 'list-style-image',
+        'list-style', 'list-style-position', 'list-style-image',
         'table-layout', 'border-collapse', 'border-spacing', 'caption-side',
         'empty-cells', 'vertical-align',
     }
@@ -88,6 +88,15 @@ class CSSSanitizer:
         'mocha:',
     }
     
+    # Properties that can inject text content into the page
+    TEXT_INJECTION_PROPERTIES = {
+        'content',           # ::before, ::after pseudo-elements
+        'quotes',           # Quotation marks
+        'counter-increment', # Counter manipulation
+        'counter-reset',    # Counter manipulation
+        'list-style-type',  # Can add text bullets/numbers
+    }
+    
     def __init__(self, 
                  strict_mode: bool = True,
                  allow_external_urls: bool = False,
@@ -96,7 +105,7 @@ class CSSSanitizer:
         Initialize the CSS sanitizer.
         
         Args:
-            strict_mode: If True, only allow whitelisted properties
+            strict_mode: If True, only allow whitelisted properties and block text injection
             allow_external_urls: If True, allow http(s) URLs in CSS
             additional_safe_properties: Additional properties to consider safe
         """
@@ -204,6 +213,10 @@ class CSSSanitizer:
             
         property_name = declaration.lower_name
         
+        # In strict mode, block properties that can inject text content
+        if self.strict_mode and property_name in self.TEXT_INJECTION_PROPERTIES:
+            return False
+        
         # Check if property is safe
         if self.strict_mode and property_name not in self.safe_properties:
             return False
@@ -300,6 +313,17 @@ if __name__ == "__main__":
     .another-safe-class {
         display: flex;
         justify-content: center;
+    }
+    
+    .text-injection {
+        content: "Injected text!";
+        quotes: '"' '"';
+        list-style-type: "• ";
+        counter-increment: section;
+    }
+    
+    .text-injection::before {
+        content: "Before text";
     }
     """
     
