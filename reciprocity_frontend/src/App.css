@@ -32,6 +32,13 @@ h1 {
     
 }
 
+.manifold-probability {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
 #header {
     top: 0;
     height: 250px;

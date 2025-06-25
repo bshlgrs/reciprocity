@@ -308,6 +308,8 @@ class App extends React.Component {
       // Responsive state
       isMobileView: window.innerWidth <= 768,
       isSmallMobile: window.innerWidth <= 480,
+      // Manifold probability
+      manifoldProbability: null,
     }
     this.hueAnimationFrame = null;
     this.subtitleAnimationTimeout = null;
@@ -330,6 +332,16 @@ class App extends React.Component {
       .then(response => response.text())
       .then(data => {
         this.setState({ currentSubtitle: data });
+      });
+
+    // Fetch probability from Manifold Markets API
+    fetch('https://api.manifold.markets/v0/market/p5PO2PyUA0')
+      .then(response => response.json())
+      .then(data => {
+        this.setState({ manifoldProbability: data.probability });
+      })
+      .catch(error => {
+        console.error('Failed to fetch Manifold probability:', error);
       });
 
     this.cssPollingInterval = window.setInterval(async () => {
@@ -643,7 +655,17 @@ class App extends React.Component {
               {this.state.currentSubtitle}
               {this.state.isAnimatingSubtitle && <span className="typing-cursor">|</span>}
             </div>
+            {this.state.manifoldProbability !== null && (
+              <div className="manifold-probability" style={{
+                fontSize: '0.9em',
+                color: '#666',
+              }}>
+                <a target="_blank" href="https://manifold.markets/Buck/dumb-feature-on-new-reciprocity-web">
+                P(bad security decisions compromise privacy by EOY 2025) = {(this.state.manifoldProbability * 100).toFixed(1)}%</a>
+              </div>
+            )}
             <div className="header-privacy-link"><a href={'/privacy_policy.txt'}>privacy policy</a></div>
+            
           </div>
           <div id='logout'>
             {this.state.myInfo &&
