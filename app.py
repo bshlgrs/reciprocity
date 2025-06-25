@@ -428,7 +428,7 @@ def api_generate_css():
                 print(f"DEBUG: First 200 chars of extracted CSS: {extracted_css[:200]}")
                 
                 # Sanitize the extracted CSS
-                global_custom_css = sanitize_css(extracted_css, strict_mode=False)
+                global_custom_css = sanitize_css(extracted_css, strict_mode=True)
                 
                 print(f"DEBUG: Sanitized CSS length: {len(global_custom_css)}")
                 

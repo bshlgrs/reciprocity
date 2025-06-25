@@ -58,7 +58,7 @@ const CustomTextField = (props) => {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        style={{...baseStyle, minHeight: '60px', resize: 'vertical'}}
+        style={{...baseStyle, minHeight: '60px', resize: 'vertical', width: '70%'}}
         {...inputProps}
         {...otherProps}
       />
@@ -171,6 +171,55 @@ const CustomModal = ({open, onClose, children, title}) => {
   );
 };
 
+// Responsive Header Cell Component
+const ResponsiveHeaderCell = ({ fullText, abbreviation, style = {} }) => {
+  const [isSmallScreen, setIsSmallScreen] = React.useState(window.innerWidth < 768);
+  const [popoverAnchor, setPopoverAnchor] = React.useState(null);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const cellStyle = {
+    textAlign: 'center',
+    ...(isSmallScreen ? { width: '40px' } : { width: '150px' }),
+    ...style
+  };
+
+  if (isSmallScreen) {
+    return (
+      <>
+        <td 
+          style={cellStyle}
+          onMouseEnter={(e) => setPopoverAnchor(e.currentTarget)}
+          onMouseLeave={() => setPopoverAnchor(null)}
+        >
+          {abbreviation}
+        </td>
+        <CustomPopover
+          open={Boolean(popoverAnchor)}
+          anchorEl={popoverAnchor}
+          onClose={() => setPopoverAnchor(null)}
+        >
+          <div style={{ padding: '8px 12px', fontSize: '14px' }}>
+            {fullText}
+          </div>
+        </CustomPopover>
+      </>
+    );
+  }
+
+  return (
+    <td style={cellStyle}>
+      {fullText}
+    </td>
+  );
+};
 
 // Instructions Accordion Component
 const InstructionAccordion = () => {
@@ -226,8 +275,6 @@ const InstructionAccordion = () => {
   );
 };
 
-
-
 class App extends React.Component {
   constructor(props, context) {
     super(props, context);
@@ -258,6 +305,9 @@ class App extends React.Component {
       // Subtitle animation state
       currentSubtitle: '',
       isAnimatingSubtitle: false,
+      // Responsive state
+      isMobileView: window.innerWidth <= 768,
+      isSmallMobile: window.innerWidth <= 480,
     }
     this.hueAnimationFrame = null;
     this.subtitleAnimationTimeout = null;
@@ -266,6 +316,15 @@ class App extends React.Component {
   componentDidMount() {
     // Better Facebook SDK initialization
     this.initializeFacebookSDK();
+
+    // Add resize listener for responsive behavior
+    this.handleResize = () => {
+      this.setState({
+        isMobileView: window.innerWidth <= 768,
+        isSmallMobile: window.innerWidth <= 480,
+      });
+    };
+    window.addEventListener('resize', this.handleResize);
 
     fetch('/api/get_tagline')
       .then(response => response.text())
@@ -353,6 +412,10 @@ class App extends React.Component {
     // Clean up tagline polling interval
     if (this.taglinePollingInterval) {
       clearInterval(this.taglinePollingInterval);
+    }
+    // Clean up resize listener
+    if (this.handleResize) {
+      window.removeEventListener('resize', this.handleResize);
     }
   }
 
@@ -585,14 +648,25 @@ class App extends React.Component {
           <div id='logout'>
             {this.state.myInfo &&
               <div>
-                <button onClick={() => window.FB.logout(() => window.location.reload())} >Log out</button>
+                <button onClick={() => window.FB.logout(() => window.location.reload())} >
+                  {this.state.isSmallMobile ? 'Logout' : 'Log out'}
+                </button>
                 {/*<Button onClick={() => this.deleteAccount()}>Delete account</Button>*/}
                 <div className="signed-in-text">
-                  <span className="highlight-color">Signed in as</span>
-                  <img height={25} width={25} alt={`Your profile pic`}
-                       className="profile-image"
-                       src={this.state.myProfilePicUrl}/>
-                  {this.state.myInfo.name}
+                  <span className="highlight-color">
+                    {this.state.isSmallMobile ? 'Signed in as' : 'Signed in as'}
+                  </span>
+                  <img 
+                    height={this.state.isSmallMobile ? 20 : 25} 
+                    width={this.state.isSmallMobile ? 20 : 25} 
+                    alt={`Your profile pic`}
+                    className="profile-image"
+                    src={this.state.myProfilePicUrl}
+                  />
+                  {this.state.isSmallMobile ? 
+                    this.state.myInfo.name.split(' ')[0] : 
+                    this.state.myInfo.name
+                  }
                 </div>
               </div>
             }
@@ -611,9 +685,18 @@ class App extends React.Component {
                 <thead>
                   <tr>
                     <td style={{paddingLeft: '20px'}}><h3>People</h3></td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+                    <ResponsiveHeaderCell 
+                      fullText="Hang out sometime" 
+                      abbreviation="Hang" 
+                    />
+                    <ResponsiveHeaderCell 
+                      fullText="Go on a date or something" 
+                      abbreviation="Date" 
+                    />
+                    <ResponsiveHeaderCell 
+                      fullText="Lick feet" 
+                      abbreviation="Feet" 
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -646,9 +729,18 @@ class App extends React.Component {
                 <thead>
                   <tr>
                     <td style={{paddingLeft: '20px'}}><h3>People</h3></td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+                    <ResponsiveHeaderCell 
+                      fullText="Hang out sometime" 
+                      abbreviation="Hang" 
+                    />
+                    <ResponsiveHeaderCell 
+                      fullText="Go on a date or something" 
+                      abbreviation="Date" 
+                    />
+                    <ResponsiveHeaderCell 
+                      fullText="Lick feet" 
+                      abbreviation="Feet" 
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -678,10 +770,19 @@ class App extends React.Component {
               <table className="friend-table">
                 <thead>
                   <tr>
-                    <td style={{paddingLeft: '20px'}}><h3>People</h3></td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
-                    <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+                    <td />
+                    <ResponsiveHeaderCell 
+                      fullText="Hang out sometime" 
+                      abbreviation="Hang" 
+                    />
+                    <ResponsiveHeaderCell 
+                      fullText="Go on a date or something" 
+                      abbreviation="Date" 
+                    />
+                    <ResponsiveHeaderCell 
+                      fullText="Lick feet" 
+                      abbreviation="Feet" 
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -1414,12 +1515,10 @@ class FriendsListView extends React.Component {
     const hasMoreItems = sortedFriends.length > this.state.itemsToShow;
 
     return (
-        <div>
-          <table style={{ marginTop: '100px' }} className='friend-table'>
-            <thead>
-            <tr>
-              <td style={{paddingLeft: '20px'}}><h3>People</h3>
-              <div>Name filter: <input 
+        <div style={{ marginTop: '100px' }}>
+          <div style={{marginLeft: '10px'}}>
+          <h3>People</h3>
+          <div>Name filter: <input 
                 value={this.state.nameFilter || ''} 
                 onChange={(e) => this.setState({nameFilter: e.target.value}, this.resetPagination)} 
               /></div>
@@ -1430,11 +1529,26 @@ class FriendsListView extends React.Component {
               <div style={{fontSize: '0.9em', color: '#666', marginTop: '10px'}}>
                 Showing {friendsToShow.length} of {sortedFriends.length} people
               </div>
+              </div>
+          <table  className='friend-table'>
+            <thead>
+            <tr>
+              <td style={{paddingLeft: '20px'}}>
+              
               </td>
               
-              <td style={{width: '150px', textAlign: 'center'}}>Hang out sometime</td>
-              <td style={{width: '150px', textAlign: 'center'}}>Go on a date or something</td>
-              <td style={{width: '150px', textAlign: 'center'}}>Lick feet</td>
+              <ResponsiveHeaderCell 
+                fullText="Hang out sometime" 
+                abbreviation="Hang" 
+              />
+              <ResponsiveHeaderCell 
+                fullText="Go on a date or something" 
+                abbreviation="Date" 
+              />
+              <ResponsiveHeaderCell 
+                fullText="Lick feet" 
+                abbreviation="Feet" 
+              />
             </tr>
             </thead>
             <tbody>
@@ -1474,7 +1588,7 @@ class FriendsListView extends React.Component {
       <td>
         <div className='user-td'>
           <div>
-            <div className='name'>
+            <span className='name'>
               {name}
               {friend.dating_doc_link && (
                 <span 
@@ -1490,11 +1604,11 @@ class FriendsListView extends React.Component {
                   🔗
                 </span>
               )}
-            </div>
-            <div className='bio'>{(bio || "").split(" ")
+            </span>&nbsp;
+            <span className='bio'>{(bio || "").split(" ")
                 .map((part, idx) =>
                   urlRegex.test(part) ? <a key={idx} href={part}>{part} </a> : part + " "
-                )}</div>
+                )}</span>
           </div>
 
         </div>
