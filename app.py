@@ -441,6 +441,7 @@ def api_generate_css():
     if not instruction:
         return jsonify({"error": "Instruction parameter required"}), 400
     
+    assert len(instruction) <= 200, "Instruction must be 200 characters or fewer"
     # Read HTML file
     try:
         html_file_path = os.path.join(os.path.dirname(__file__), "example_html.html")
