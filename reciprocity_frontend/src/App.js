@@ -1122,7 +1122,7 @@ class App extends React.Component {
             <li style={{marginBottom: '8px'}}>It's a new Reciprocity era, so I've removed all previous checks and user data.</li>
             <li style={{marginBottom: '8px'}}>I have made everyone's profiles private by default. So if you want other people to see you, or to see other people, you'll need to update this in your user settings.</li>
             <li style={{marginBottom: '8px'}}>Dating docs are now directly supported.</li>
-            <li style={{marginBottom: '8px'}}>You can add your phone number to your profile, and we'll send you text notifications when you match with someone. (This feature is in progress, not implemented yet.)</li>
+            <li style={{marginBottom: '8px'}}>You can add private contact info to your profile that is visible only to people you've matched with.</li>
             <li style={{marginBottom: '8px'}}>I've hopefully found a permanent solution to people sending me suggestions for how the graphic design could be improved.</li>
           </ul>
           <p style={{marginBottom: '20px'}}>
