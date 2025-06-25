@@ -40,3 +40,11 @@
   <link rel="stylesheet" href="/api/global_css.css" id='user-custom-css'>
   </body>
 </html>
+
+<script>
+  // Force reload to HTTPS if loaded in HTTP (but not on localhost)
+  if (window.location.protocol === 'http:' && !/^localhost(:\d+)?$/.test(window.location.hostname)) {
+    window.location.href = window.location.href.replace(/^http:/, 'https:');
+  }
+</script>
+
