@@ -83,7 +83,11 @@ def api_generate_tagline():
         generated_tagline=global_tagline
     )
     ses.add(tagline_log)
-    ses.commit()
+    try:
+        ses.commit()
+    except Exception as e:
+        ses.rollback()
+        raise e
     
     return global_tagline
 
@@ -198,8 +202,13 @@ def api_info():
     # Commit after all data has been gathered
     if first_time_logging_in:
         print('about to try to commit')
-        ses.commit()
-        print('committed')
+        try:
+            ses.commit()
+            print('committed')
+        except Exception as e:
+            ses.rollback()
+            print('commit failed, rolled back')
+            raise e
 
     return jsonify(
         [
@@ -339,7 +348,7 @@ def api_update_user():
         assert len(updated_info["phone_number"]) <= 20
         current_user.phone_number = updated_info["phone_number"]
     if "dating_doc_link" in updated_info and updated_info["dating_doc_link"] is not None:
-        assert len(updated_info["dating_doc_link"]) <= 500
+        assert len(updated_info["dating_doc_link"]) <= 200
         current_user.dating_doc_link = updated_info["dating_doc_link"]
     if "private_contact_info" in updated_info:
         assert len(updated_info["private_contact_info"]) <= 1000
@@ -362,7 +371,11 @@ def api_update_user():
                 # Clear user's individual CSS
                 current_user.custom_css = None
 
-    ses.commit()
+    try:
+        ses.commit()
+    except Exception as e:
+        ses.rollback()
+        raise e
     return jsonify(current_user)
 
 
@@ -372,7 +385,11 @@ def api_update_visibility():
     new_visibility = request.json["visibility"]
     current_user.visibility_setting = new_visibility
 
-    ses.commit()
+    try:
+        ses.commit()
+    except Exception as e:
+        ses.rollback()
+        raise e
     return jsonify(current_user)
 
 

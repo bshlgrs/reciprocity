@@ -955,15 +955,15 @@ class App extends React.Component {
                   value={this.state.datingDocLinkState !== undefined ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")}
                   onChange={(e) => this.setState({datingDocLinkState: e.target.value})}
                   placeholder="Enter URL (e.g., https://docs.google.com/...)"
-                  inputProps={{ maxLength: 500 }}
+                                      inputProps={{ maxLength: 200 }}
                 />
               </div>
               <div style={{
-                color: ((this.state.datingDocLinkState ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")).length > 500) ? "#d32f2f" : "#B6AAA2", 
+                                    color: ((this.state.datingDocLinkState ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")).length > 200) ? "#d32f2f" : "#B6AAA2", 
                 fontSize: "0.9em", 
                 marginTop: '5px'
               }}>
-                {(this.state.datingDocLinkState ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")).length}/500
+                                  {(this.state.datingDocLinkState ? this.state.datingDocLinkState : (this.state.myInfo.dating_doc_link || "")).length}/200
               </div>
             </div>
 
@@ -1408,7 +1408,7 @@ class App extends React.Component {
     if (this.state.datingDocLinkState !== undefined && 
         this.state.datingDocLinkState !== (this.state.myInfo.dating_doc_link || "")) {
       // Also check if dating doc link is within length limit
-      if ((this.state.datingDocLinkState || "").length <= 500) {
+              if ((this.state.datingDocLinkState || "").length <= 200) {
         return true;
       }
     }
