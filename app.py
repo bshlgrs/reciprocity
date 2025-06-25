@@ -211,6 +211,98 @@ def index():
     index_path = __file__[:-6] + "reciprocity_frontend/build/index.html"
     
     return send_file(index_path)
+
+
+@app.route("/themes")
+def themes_page():
+    """Display all themes that people have submitted"""
+    # Get all tagline logs with their themes
+    logs = ses.query(TaglineLog).order_by(TaglineLog.timestamp.desc()).all()
+    
+    # Create HTML content
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>All Themes - Reciprocity</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                line-height: 1.6;
+                background-color: #f5f5f5;
+            }}
+            h1 {{
+                color: #333;
+                text-align: center;
+                margin-bottom: 30px;
+            }}
+            .theme-item {{
+                background: white;
+                margin: 15px 0;
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }}
+            .theme-text {{
+                font-size: 16px;
+                margin-bottom: 8px;
+                color: #333;
+            }}
+            .theme-meta {{
+                font-size: 12px;
+                color: #666;
+                border-top: 1px solid #eee;
+                padding-top: 8px;
+            }}
+            .back-link {{
+                display: inline-block;
+                margin-bottom: 20px;
+                color: #007bff;
+                text-decoration: none;
+            }}
+            .back-link:hover {{
+                text-decoration: underline;
+            }}
+            .stats {{
+                text-align: center;
+                margin-bottom: 30px;
+                color: #666;
+            }}
+        </style>
+    </head>
+    <body>
+        <a href="/" class="back-link">← Back to Reciprocity</a>
+        <h1>All Submitted Themes</h1>
+        <div class="stats">
+            Total themes submitted: {len(logs)}
+        </div>
+        <div class="themes-container">
+    """
+    
+    # Add each theme
+    for log in logs:
+        html_content += f"""
+            <div class="theme-item">
+                <div class="theme-text">"{log.instruction}"</div>
+                <div class="theme-meta">
+                    Submitted by {log.user_name} on {log.timestamp.strftime('%B %d, %Y at %I:%M %p')}
+                    <br>Generated tagline: "{log.generated_tagline}"
+                </div>
+            </div>
+        """
+    
+    html_content += """
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html_content
     
 @app.route("/api/global_css.css")
 def api_global_css():

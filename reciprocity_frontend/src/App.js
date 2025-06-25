@@ -187,7 +187,7 @@ const ResponsiveHeaderCell = ({ fullText, abbreviation, style = {} }) => {
 
   const cellStyle = {
     textAlign: 'center',
-    ...(isSmallScreen ? { width: '40px' } : { width: '150px' }),
+    ...(isSmallScreen ? { width: '40px' } : { width: '90px' }),
     ...style
   };
 
