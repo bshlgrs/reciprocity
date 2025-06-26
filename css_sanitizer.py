@@ -282,8 +282,6 @@ class CSSSanitizer:
             r'src\s*\(',         # CSS src() function (in @font-face)
             # CSS variables that might contain URLs
             r'var\s*\(\s*--[^)]*url',  # CSS custom properties containing URLs
-            # SVG references
-            r'#[a-zA-Z]',        # Fragment identifiers that could reference SVG
         ]
         
         for pattern in dangerous_patterns:
@@ -381,4 +379,13 @@ if __name__ == "__main__":
 }
     """
     print(sanitize_css(code))
+
+
+# %%
+print(sanitize_css("""
+.accordion-summary {
+    background-color: #d7ccc8;
+    transition: background-color 0.3s ease;
+}
+"""))
 # %%
