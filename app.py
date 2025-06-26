@@ -589,6 +589,8 @@ def api_generate_css():
 
                     Include colors for links and clicked links.
 
+                    The only domain you can link to is https://fonts.googleapis.com.
+
                     Avoid rapid flashing of large areas of the page.
 
                     Examples of good instructions:
@@ -606,6 +608,7 @@ def api_generate_css():
                     - "Make the last column of the table (which currently doesn't have a name) say "Cuddle""
                     - "The names are currently misaligned, can you move each checkbox down like 70px? Just use a transform I can't figure out a different way"
                     - "as many flashing lights as possible" <- for this one you should only have the lights flash gradually, don't cause seizures
+                    - "please rotate the website 90 degrees with the origin being the top-left corner and not the center"
                     
                     <instructions>{instruction}</instructions>"""
                 }],

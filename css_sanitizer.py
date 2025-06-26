@@ -196,9 +196,15 @@ class CSSSanitizer:
         if hasattr(rule, 'lower_at_keyword'):
             at_keyword = rule.lower_at_keyword
             
-            # Block dangerous at-rules that can trigger web requests
+            # Special handling for @import - allow Google Fonts
+            if at_keyword == 'import':
+                if self._is_safe_google_fonts_import(rule):
+                    return rule
+                else:
+                    return None
+            
+            # Block other dangerous at-rules that can trigger web requests
             dangerous_at_rules = [
-                'import',        # @import loads external CSS
                 'namespace',     # @namespace can reference external resources
                 'font-face',     # @font-face loads external fonts
                 'document',      # @document (Firefox) can trigger requests
@@ -226,6 +232,44 @@ class CSSSanitizer:
                     return rule
         
         return None
+    
+    def _is_safe_google_fonts_import(self, rule) -> bool:
+        """Check if an @import rule is safely importing from Google Fonts."""
+        if not hasattr(rule, 'prelude'):
+            return False
+        
+        # Serialize the prelude to get the URL
+        prelude_str = tinycss2.serialize(rule.prelude).lower()
+        
+        # Check if it's a Google Fonts URL
+        google_fonts_patterns = [
+            r'fonts\.googleapis\.com',
+            r'fonts\.gstatic\.com',  # Also allow gstatic.com (Google's static content domain)
+        ]
+        
+        for pattern in google_fonts_patterns:
+            if re.search(pattern, prelude_str):
+                # Additional safety check - make sure it's a proper HTTPS URL
+                if 'https://' in prelude_str:
+                    return True
+        
+        return False
+    
+    def _is_safe_google_fonts_url(self, serialized_value: str) -> bool:
+        """Check if a URL function is safely pointing to Google Fonts."""
+        # Check if it's a Google Fonts URL
+        google_fonts_patterns = [
+            r'fonts\.googleapis\.com',
+            r'fonts\.gstatic\.com',  # Also allow gstatic.com (Google's static content domain)
+        ]
+        
+        for pattern in google_fonts_patterns:
+            if re.search(pattern, serialized_value):
+                # Additional safety check - make sure it's a proper HTTPS URL
+                if 'https://' in serialized_value:
+                    return True
+        
+        return False
     
     def _is_safe_declaration(self, declaration) -> bool:
         """Check if a CSS declaration is safe."""
@@ -257,9 +301,10 @@ class CSSSanitizer:
         """Check if CSS property values are safe."""
         serialized_value = tinycss2.serialize(value_tokens).lower()
         
-        # Block all URLs - no url() functions allowed at all
+        # Check for URL functions - allow Google Fonts, block others
         if re.search(r'url\s*\(', serialized_value):
-            return False
+            if not self._is_safe_google_fonts_url(serialized_value):
+                return False
         
         # Check for dangerous patterns in the serialized value
         dangerous_patterns = [
@@ -387,5 +432,17 @@ print(sanitize_css("""
     background-color: #d7ccc8;
     transition: background-color 0.3s ease;
 }
+"""))
+# %%
+
+print(sanitize_css("""
+@import url('https://fonts.googleapis.com/css2?family=Uncial+Antiqua&display=swap');
+
+body {
+    background: linear-gradient(135deg, #f0e6d2, #d4c3a8);
+    color: #4a3e33;
+    font-family: 'Uncial Antiqua', cursive;
+}
+
 """))
 # %%
