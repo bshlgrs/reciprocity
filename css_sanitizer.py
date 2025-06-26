@@ -1,3 +1,4 @@
+#%%
 import re
 import tinycss2
 from typing import List, Set, Optional
@@ -18,6 +19,18 @@ class CSSSanitizer:
         'data',        # data: URLs can be dangerous
         'script',      # script references
         'import',      # @import can load external content
+        # Additional dangerous properties
+        '-moz-binding',      # Firefox XML binding (can load external XML)
+        '-webkit-mask',      # Mask properties can use URLs
+        'mask',              # CSS mask property
+        'mask-image',        # CSS mask-image property
+        'clip-path',         # Can reference external SVG
+        'filter',            # CSS filter can reference external SVG
+        'src',               # Used in @font-face to load external fonts
+        'cursor',            # Can use custom cursor from URL
+        'list-style-image',  # Can load external images for list bullets
+        'border-image',      # Can load external images for borders
+        'background-image',  # Can load external background images
     }
     
     # Dangerous CSS functions
@@ -53,7 +66,7 @@ class CSSSanitizer:
         'text-shadow', 'white-space', 'word-wrap', 'word-break',
         
         # Colors and backgrounds
-        'color', 'background', 'background-color', 'background-image',
+        'color', 'background', 'background-color',
         'background-repeat', 'background-position', 'background-size',
         'background-attachment', 'background-clip', 'background-origin',
         'opacity',
@@ -73,8 +86,8 @@ class CSSSanitizer:
         'transition-duration', 'transition-timing-function', 'transition-delay',
         
         # Misc safe properties
-        'cursor', 'outline', 'outline-color', 'outline-style', 'outline-width',
-        'list-style', 'list-style-position', 'list-style-image',
+        'outline', 'outline-color', 'outline-style', 'outline-width',
+        'list-style', 'list-style-position',
         'table-layout', 'border-collapse', 'border-spacing', 'caption-side',
         'empty-cells', 'vertical-align',
     }
@@ -183,8 +196,16 @@ class CSSSanitizer:
         if hasattr(rule, 'lower_at_keyword'):
             at_keyword = rule.lower_at_keyword
             
-            # Block dangerous at-rules
-            if at_keyword in ['import', 'namespace']:
+            # Block dangerous at-rules that can trigger web requests
+            dangerous_at_rules = [
+                'import',        # @import loads external CSS
+                'namespace',     # @namespace can reference external resources
+                'font-face',     # @font-face loads external fonts
+                'document',      # @document (Firefox) can trigger requests
+                'page',          # @page can reference external resources
+            ]
+            
+            if at_keyword in dangerous_at_rules:
                 return None
             
             # Allow safe at-rules like @media, @keyframes
@@ -236,6 +257,10 @@ class CSSSanitizer:
         """Check if CSS property values are safe."""
         serialized_value = tinycss2.serialize(value_tokens).lower()
         
+        # Block all URLs - no url() functions allowed at all
+        if re.search(r'url\s*\(', serialized_value):
+            return False
+        
         # Check for dangerous patterns in the serialized value
         dangerous_patterns = [
             r'javascript\s*:',
@@ -249,6 +274,16 @@ class CSSSanitizer:
             r'document\.',
             r'window\.',
             r'location\.',
+            # Additional CSS functions that could be dangerous
+            r'image\s*\(',       # CSS image() function can load external resources
+            r'element\s*\(',     # CSS element() function (Firefox)
+            r'cross-fade\s*\(',  # CSS cross-fade() function
+            r'image-set\s*\(',   # CSS image-set() function
+            r'src\s*\(',         # CSS src() function (in @font-face)
+            # CSS variables that might contain URLs
+            r'var\s*\(\s*--[^)]*url',  # CSS custom properties containing URLs
+            # SVG references
+            r'#[a-zA-Z]',        # Fragment identifiers that could reference SVG
         ]
         
         for pattern in dangerous_patterns:
@@ -258,11 +293,6 @@ class CSSSanitizer:
         # Check for dangerous URL schemes
         for scheme in self.DANGEROUS_URL_SCHEMES:
             if scheme in serialized_value:
-                return False
-        
-        # If external URLs are not allowed, check for http(s) URLs
-        if not self.allow_external_urls:
-            if re.search(r'url\s*\(\s*["\']?https?:', serialized_value):
                 return False
         
         return True
@@ -341,3 +371,14 @@ if __name__ == "__main__":
     result_strict = sanitizer_strict.sanitize_css(test_css)
     print("Sanitized CSS (strict mode):")
     print(result_strict) 
+
+
+    code = """
+    body {
+  background: url('your-image.jpg') no-repeat center center / cover;
+  margin: 0;
+  height: 100vh;
+}
+    """
+    print(sanitize_css(code))
+# %%

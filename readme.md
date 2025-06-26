@@ -27,3 +27,20 @@ For a single command to do all of this, go to the reciprocity_frontend folder an
 - Button to display the last time you logged in
 - Profile pictures
 - Option to hide people you've seen
+
+
+
+
+
+
+
+
+
+----------
+
+- grey out Submit Checks until there's stuff to submit
+- "pending removal" state
+- change checkboxes? To an icon?
+- Shuffle user order
+- Hide seen users
+- pop up telling them "it's time to act, you matched"

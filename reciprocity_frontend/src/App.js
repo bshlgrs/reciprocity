@@ -242,9 +242,7 @@ const InstructionAccordion = () => {
           </div>
 
           <div>
-            Press
-            <button style={{marginLeft: "0.5em"}} >Save
-            </button>.
+            Press "Submit checks" to submit your selections.
           </div>
 
           <div>
@@ -1342,14 +1340,30 @@ class App extends React.Component {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
-    }).then(response => response.json())
-        .then((myInfo) => {
-          this.setState({myInfo: myInfo});
-          // Apply custom CSS if it was updated
-          if (newInfo.custom_css !== undefined) {
-            this.applyCustomCSS(myInfo.custom_css);
+    })
+    .then(response => {
+      if (response.status === 401) {
+        return response.json().then(errorData => {
+          if (errorData.error === 'facebook_login_failed') {
+            this.handleFacebookLogout();
+            throw new Error(errorData.message || 'Facebook login failed');
+          } else {
+            throw new Error(errorData.message || 'Authentication failed');
           }
-        })
+        });
+      }
+      return response.json();
+    })
+    .then((myInfo) => {
+      this.setState({myInfo: myInfo});
+      // Apply custom CSS if it was updated
+      if (newInfo.custom_css !== undefined) {
+        this.applyCustomCSS(myInfo.custom_css);
+      }
+    })
+    .catch(error => {
+      console.error('Update user info failed:', error);
+    })
   }
 
   saveAllUserSettings() {
@@ -1442,14 +1456,30 @@ class App extends React.Component {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
-    }).then(response => response.json())
-        .then(([myChecks, reciprocations]) => {
-          // this.
-          this.setState({
-                    myChecks: Map(myChecks).mapEntries(([idStr, x]) =>
-          [parseInt(idStr), Set(x)]), reciprocations: reciprocations
-          })
-        })
+    })
+    .then(response => {
+      if (response.status === 401) {
+        return response.json().then(errorData => {
+          if (errorData.error === 'facebook_login_failed') {
+            this.handleFacebookLogout();
+            throw new Error(errorData.message || 'Facebook login failed');
+          } else {
+            throw new Error(errorData.message || 'Authentication failed');
+          }
+        });
+      }
+      return response.json();
+    })
+    .then(([myChecks, reciprocations]) => {
+      this.setState({
+        myChecks: Map(myChecks).mapEntries(([idStr, x]) =>
+          [parseInt(idStr), Set(x)]), 
+        reciprocations: reciprocations
+      })
+    })
+    .catch(error => {
+      console.error('Update checks failed:', error);
+    })
   }
 
   updateVisibility(newVisibility) {
@@ -1461,11 +1491,27 @@ class App extends React.Component {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
-    }).then(response => response.json())
-        .then(() => {
-          this.fetchInfo();
-          
-        })
+    })
+    .then(response => {
+      if (response.status === 401) {
+        return response.json().then(errorData => {
+          if (errorData.error === 'facebook_login_failed') {
+            this.handleFacebookLogout();
+            throw new Error(errorData.message || 'Facebook login failed');
+          } else {
+            throw new Error(errorData.message || 'Authentication failed');
+          }
+        });
+      }
+      return response.json();
+    })
+    .then(() => {
+      this.fetchInfo();
+    })
+    .catch(error => {
+      console.error('Update visibility failed:', error);
+      this.setState({updatingVisibility: false});
+    })
   }
 
 
@@ -1483,49 +1529,100 @@ class App extends React.Component {
     }
   }
 
+  handleFacebookLogout() {
+    // Clear the user's state
+    this.setState({
+      accessToken: null,
+      myInfo: null,
+      friendsList: null,
+      myChecks: null,
+      reciprocations: null,
+      bioState: null,
+      currentChecksState: null,
+      myProfilePicUrl: null,
+      loggingIn: false,
+      myVisibilitySetting: null,
+      privateContactInfoState: undefined,
+      nameFilter: '',
+      updatingVisibility: false,
+    });
+
+    // Log out from Facebook if FB is available
+    if (window.FB) {
+      window.FB.logout((response) => {
+        console.log('Facebook logout response:', response);
+      });
+    }
+
+    // Remove any custom CSS
+    this.removeCustomCSS();
+    
+    // Stop any animations
+    this.stopHueAnimation();
+
+    // Show a message to the user
+    alert('Your login session has expired. Please log in again to continue.');
+  }
+
   fetchInfo() {
-    fetch('/api/info?access_token=' + this.state.accessToken).then(response => response.json())
-          .then(data => {
-            let [myInfo, firstLogin, friendsList, friendPictures, myChecks, reciprocations, myProfilePicUrl] = data;
-            const myVisibilitySetting = myInfo.visibility_setting;
-
-                const myChecksParsed = Map(myChecks).mapEntries(([idStr, x]) =>
-      [parseInt(idStr), Set(x)])
-
-            // Check if we should show the welcome back modal
-            const shouldShowWelcomeBackModal = firstLogin;
-
-            this.setState({
-              friendsList: friendsList,
-              friendPictures: friendPictures,
-              myInfo: myInfo,
-              myChecks: myChecksParsed,
-              currentChecksState: myChecksParsed,
-              reciprocations: reciprocations,
-              bioState: myInfo.bio,
-              datingDocLinkState: myInfo.dating_doc_link,
-              customCssState: myInfo.custom_css,
-              privateContactInfoState: myInfo.private_contact_info,
-              myProfilePicUrl: myProfilePicUrl,
-              myVisibilitySetting: myVisibilitySetting,
-              nameFilter: '',
-              updatingVisibility: false,
-              showWelcomeBackModal: shouldShowWelcomeBackModal,
-            });
-
-            // Apply custom CSS if it exists
-            if (myInfo.custom_css) {
-              this.applyCustomCSS(myInfo.custom_css);
+    fetch('/api/info?access_token=' + this.state.accessToken)
+      .then(response => {
+        if (response.status === 401) {
+          // Check for Facebook login failure
+          return response.json().then(errorData => {
+            if (errorData.error === 'facebook_login_failed') {
+              // Facebook login failed - log out and let user try again
+              console.log('Facebook login failed, logging out...');
+              this.handleFacebookLogout();
+              throw new Error(errorData.message || 'Facebook login failed');
+            } else {
+              throw new Error(errorData.message || 'Authentication failed');
             }
-            
-            // Stop hue animation when login is successful
-            this.stopHueAnimation();
-          })
-          .catch(error => {
-            console.error('Login failed:', error);
-            // Stop hue animation if login fails
-            this.stopHueAnimation();
-          })
+          });
+        }
+        return response.json();
+      })
+      .then(data => {
+        let [myInfo, firstLogin, friendsList, friendPictures, myChecks, reciprocations, myProfilePicUrl] = data;
+        const myVisibilitySetting = myInfo.visibility_setting;
+
+        const myChecksParsed = Map(myChecks).mapEntries(([idStr, x]) =>
+          [parseInt(idStr), Set(x)])
+
+        // Check if we should show the welcome back modal
+        const shouldShowWelcomeBackModal = firstLogin;
+
+        this.setState({
+          friendsList: friendsList,
+          friendPictures: friendPictures,
+          myInfo: myInfo,
+          myChecks: myChecksParsed,
+          currentChecksState: myChecksParsed,
+          reciprocations: reciprocations,
+          bioState: myInfo.bio,
+          datingDocLinkState: myInfo.dating_doc_link,
+          customCssState: myInfo.custom_css,
+          privateContactInfoState: myInfo.private_contact_info,
+          myProfilePicUrl: myProfilePicUrl,
+          myVisibilitySetting: myVisibilitySetting,
+          nameFilter: '',
+          updatingVisibility: false,
+          showWelcomeBackModal: shouldShowWelcomeBackModal,
+        });
+
+        // Apply custom CSS if it exists
+        if (myInfo.custom_css) {
+          this.applyCustomCSS(myInfo.custom_css);
+        }
+        
+        // Stop hue animation when login is successful
+        this.stopHueAnimation();
+      })
+      .catch(error => {
+        console.error('Login failed:', error);
+        // Stop hue animation if login fails
+        this.stopHueAnimation();
+      })
   }
 
   setCheckedState(id, activity, currChecked) {

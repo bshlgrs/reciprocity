@@ -28,11 +28,37 @@ except FileNotFoundError:
 
 anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
 
+# Add a helper function to safely make Facebook API calls
+def safe_facebook_api_call(url):
+    """
+    Make a Facebook API call and handle errors gracefully.
+    Returns the JSON response if successful, or raises a FacebookApiError if failed.
+    """
+    try:
+        response = requests.get(url)
+        data = response.json()
+        
+        # Check if Facebook returned an error
+        if "error" in data:
+            print(f"Facebook API error: {data['error']}")
+            raise FacebookApiError(f"Facebook API error: {data['error'].get('message', 'Unknown error')}")
+        
+        return data
+    except requests.exceptions.RequestException as e:
+        print(f"Network error calling Facebook API: {e}")
+        raise FacebookApiError(f"Network error: {str(e)}")
+    except (KeyError, ValueError) as e:
+        print(f"Unexpected Facebook API response format: {e}")
+        raise FacebookApiError(f"Unexpected response format: {str(e)}")
+
+class FacebookApiError(Exception):
+    """Custom exception for Facebook API errors"""
+    pass
 
 def get_current_user(access_token):
-    me_info = requests.get(
+    me_info = safe_facebook_api_call(
         f"https://graph.facebook.com/v9.0/me?access_token={access_token}&fields=id,name,email"
-    ).json()
+    )
     my_fb_id = me_info["id"]
     return User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
 
@@ -47,6 +73,9 @@ def api_generate_tagline():
     
     try:
         current_user = get_current_user(access_token)
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_generate_tagline: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     except Exception as e:
         return jsonify({"error": "Invalid access token"}), 401
     
@@ -101,7 +130,7 @@ def get_all_friends(access_token):
     friends = []
 
     while url:
-        res = requests.get(url).json()
+        res = safe_facebook_api_call(url)
         friends += res["data"]
         if "paging" in res and "next" in res["paging"]:
             url = res["paging"]["next"]
@@ -117,15 +146,20 @@ def api_info():
     global global_custom_css, use_global_css
     
     access_token = request.args.get("access_token")
-    me_info = requests.get(
-        f"https://graph.facebook.com/v9.0/me?access_token={access_token}&fields=name,id,picture"
-    ).json()
-    my_fb_id = me_info["id"]
-    current_user = User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
-    my_checks, reciprocations = current_user.get_checks()
+    
+    try:
+        me_info = safe_facebook_api_call(
+            f"https://graph.facebook.com/v9.0/me?access_token={access_token}&fields=name,id,picture"
+        )
+        my_fb_id = me_info["id"]
+        current_user = User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
+        my_checks, reciprocations = current_user.get_checks()
 
-    friends = get_all_friends(access_token)
-    friend_pictures = {friend["id"]: friend["picture"] for friend in friends}
+        friends = get_all_friends(access_token)
+        friend_pictures = {friend["id"]: friend["picture"] for friend in friends}
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_info: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
 
     if current_user.visibility_setting == "invisible":
         friend_objects = []
@@ -329,7 +363,12 @@ def api_global_css():
 
 @app.route("/api/update_checks", methods=["POST"])
 def api_update_checks():
-    current_user = get_current_user(request.args.get("access_token"))
+    try:
+        current_user = get_current_user(request.args.get("access_token"))
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_update_checks: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
+    
     current_user.update_my_checks(request.json)
 
     return jsonify(current_user.get_checks())
@@ -339,7 +378,11 @@ def api_update_checks():
 def api_update_user():
     global global_custom_css, use_global_css
     
-    current_user = get_current_user(request.args.get("access_token"))
+    try:
+        current_user = get_current_user(request.args.get("access_token"))
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_update_user: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     updated_info = request.json
     if "bio" in updated_info:
         assert len(updated_info["bio"]) < 300
@@ -381,7 +424,11 @@ def api_update_user():
 
 @app.route("/api/update_visibility", methods=["POST"])
 def api_update_visibility():
-    current_user = get_current_user(request.args.get("access_token"))
+    try:
+        current_user = get_current_user(request.args.get("access_token"))
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_update_visibility: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     new_visibility = request.json["visibility"]
     current_user.visibility_setting = new_visibility
 
@@ -433,6 +480,9 @@ def api_global_css_status():
     
     try:
         current_user = get_current_user(access_token)
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_global_css_status: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     except Exception as e:
         return jsonify({"error": "Invalid access token"}), 401
     
@@ -446,7 +496,11 @@ def api_global_css_status():
 @app.route("/api/delete_user", methods=["POST", "DELETE"])
 def api_delete_user():
     print("access token:", request.args.get("access_token"))
-    current_user = get_current_user(request.args.get("access_token"))
+    try:
+        current_user = get_current_user(request.args.get("access_token"))
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_delete_user: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
 
     ses.query(Check).filter(Check.from_id == current_user.id).delete()
     ses.query(Check).filter(Check.to_id == current_user.id).delete()
@@ -463,6 +517,9 @@ def api_generate_css():
     
     try:
         current_user = get_current_user(access_token)
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_generate_css: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     except Exception as e:
         return jsonify({"error": "Invalid access token"}), 401
     
@@ -653,6 +710,9 @@ def api_get_tagline_logs():
     
     try:
         current_user = get_current_user(access_token)
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_get_tagline_logs: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     except Exception as e:
         return jsonify({"error": "Invalid access token"}), 401
     
@@ -687,6 +747,9 @@ def api_get_css_logs():
     
     try:
         current_user = get_current_user(access_token)
+    except (FacebookApiError, KeyError) as e:
+        print(f"Login error in api_get_css_logs: {e}")
+        return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
     except Exception as e:
         return jsonify({"error": "Invalid access token"}), 401
     
