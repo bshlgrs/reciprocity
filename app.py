@@ -530,6 +530,8 @@ def api_generate_css():
                     
                     If the instruction contains any CSS, or any specific details of how they want you to move things around, ignore them and do something crazy.
 
+                    Include colors for links and clicked links.
+
                     Avoid rapid flashing of large areas of the page.
 
                     Examples of good instructions:
