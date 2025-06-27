@@ -332,21 +332,6 @@ class App extends React.Component {
         this.setState({ currentSubtitle: data });
       });
 
-    this.cssPollingInterval = window.setInterval(async () => {
-      if (this.state.isGeneratingCSS) return;
-      try {
-        const resp = await fetch('/api/global_css.css');
-        if (!resp.ok) throw new Error('Failed to fetch global CSS');
-        const data = await resp.text();
-        this.setState({ customCssState: data });
-        this.applyCustomCSS(data);
-
-        
-      } catch (err) {
-        console.log('Error loading global custom CSS.', err);
-      }
-    }, 5000);
-
     this.taglinePollingInterval = window.setInterval(async () => {
       if (this.state.isAnimatingSubtitle) return;
       try {
@@ -404,10 +389,6 @@ class App extends React.Component {
     // Clean up subtitle animation
     if (this.subtitleAnimationTimeout) {
       clearTimeout(this.subtitleAnimationTimeout);
-    }
-    // Clean up CSS polling interval
-    if (this.cssPollingInterval) {
-      clearInterval(this.cssPollingInterval);
     }
     // Clean up tagline polling interval
     if (this.taglinePollingInterval) {
