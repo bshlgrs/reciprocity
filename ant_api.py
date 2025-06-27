@@ -1,5 +1,5 @@
 import anthropic
-
+import os
 # Initialize Anthropic client
 try:
     with open("/Users/buck/anthropic_key.txt", "r") as f:
