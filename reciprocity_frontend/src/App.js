@@ -1080,11 +1080,15 @@ class App extends React.Component {
           </CustomAccordion>
           
           <div>
-            {this.state.myVisibilitySetting == 'invisible' ? <p>Set your visibility to something other than 'invisible' in order to see people!</p> :
+            {this.state.myVisibilitySetting == 'invisible' ? <p>Set your visibility to something other than 'invisible' in order to see people!
+              <button onClick={() => this.updateVisibility('everyone')}>Set visibility to public</button>
+            </p> :
             <FriendsListView
+                visibilitySetting = {this.state.myVisibilitySetting}
                 myChecks={this.state.myChecks}
                 currentChecksState={this.state.currentChecksState}
                 friendsList={this.state.friendsList}
+                updateVisibility={(newVisibility) => this.updateVisibility(newVisibility)}
                 reciprocations={Map(this.state.reciprocations).mapEntries(([idStr, x]) =>
                     [parseInt(idStr), Set(x)])}
                 friendPictures={this.state.friendPictures}
@@ -1688,6 +1692,7 @@ class FriendsListView extends React.Component {
     return (
         <div style={{ marginTop: '100px' }}>
           <div style={{marginLeft: '10px'}}>
+            
           <h3>People</h3>
           <div>Name filter: <input 
                 value={this.state.nameFilter || ''} 
