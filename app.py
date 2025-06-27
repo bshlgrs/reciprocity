@@ -261,7 +261,7 @@ def index():
     return send_file(index_path)
 
 
-@app.route("/themes")
+@app.route("/themes-394712738712")
 def themes_page():
     """Display all themes that people have submitted"""
     # Get all tagline logs with their themes
