@@ -67,7 +67,6 @@ h1 {
 .friend-table {
     table-layout: fixed;
     width: 100%;
-    
 }
 
 td {
@@ -78,7 +77,15 @@ td {
 
 #friend-table td:first-child {
     width: 100%;
-    
+}
+
+/* It's really important for rows to be easily distinguishable from each other, so that the user can easily tell which row is which. You can do this by alternating colors, having borders, etc. */
+.friend-table tbody tr:nth-child(odd) {
+    background-color: white;
+}
+
+.friend-table tbody tr:nth-child(even) {
+    background-color: #aaa;
 }
 
 .check-cell {
