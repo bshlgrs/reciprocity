@@ -391,8 +391,14 @@ def api_update_user():
         assert len(updated_info["phone_number"]) <= 20
         current_user.phone_number = updated_info["phone_number"]
     if "dating_doc_link" in updated_info and updated_info["dating_doc_link"] is not None:
-        assert len(updated_info["dating_doc_link"]) <= 200
-        current_user.dating_doc_link = updated_info["dating_doc_link"]
+        dating_doc_link = updated_info["dating_doc_link"].strip()
+        
+        # Add protocol if missing
+        if dating_doc_link and not dating_doc_link.startswith(('http://', 'https://')):
+            dating_doc_link = 'https://' + dating_doc_link
+        
+        assert len(dating_doc_link) <= 200
+        current_user.dating_doc_link = dating_doc_link
     if "private_contact_info" in updated_info:
         assert len(updated_info["private_contact_info"]) <= 1000
         current_user.private_contact_info = updated_info["private_contact_info"]
