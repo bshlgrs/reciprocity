@@ -7,6 +7,7 @@ from css_sanitizer import sanitize_css
 from ant_api import anthropic_client
 from monitor import get_score, get_score_with_explanation
 import time
+import html
 
 app = Flask(__name__, static_url_path="", static_folder="reciprocity_frontend/build")
 
@@ -336,10 +337,10 @@ def themes_page():
     for log in logs:
         html_content += f"""
             <div class="theme-item">
-                <div class="theme-text">"{log.instruction}"</div>
+                <div class="theme-text">"{html.escape(log.instruction)}"</div>
                 <div class="theme-meta">
-                    Submitted by {log.user_name} on {log.timestamp.strftime('%B %d, %Y at %I:%M %p')}
-                    <br>Generated tagline: "{log.generated_tagline}"
+                    Submitted by {html.escape(log.user_name)} on {log.timestamp.strftime('%B %d, %Y at %I:%M %p')}
+                    <br>Generated tagline: "{html.escape(log.generated_tagline)}"
                 </div>
             </div>
         """

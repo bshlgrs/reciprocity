@@ -1674,17 +1674,15 @@ class FriendsListView extends React.Component {
     // Filter friends first
     const filteredFriends = this.props.friendsList.filter(filterPred);
     
-    // Separate friends with reciprocations > 0 and friends with reciprocations === 0
-    const friendsWithReciprocations = filteredFriends.filter(friend => 
-      this.props.reciprocations.get(friend.id, Set()).size > 0
-    );
-    const friendsWithoutReciprocations = filteredFriends.filter(friend => 
-      this.props.reciprocations.get(friend.id, Set()).size === 0
-    );
-    
-    // Combine them with reciprocating friends first
-    const sortedFriends = [...friendsWithReciprocations, ...friendsWithoutReciprocations];
-    
+    // Sort friends by: 1) matched, 2) both bio & doc, 3) either, 4) neither
+    const score = (f) => [
+      this.props.reciprocations.get(f.id, Set()).size > 0 ? 3 : 0,
+      (f.bio && f.bio.trim() && f.dating_doc_link && f.dating_doc_link.trim()) ? 2 :
+        ((f.bio && f.bio.trim()) || (f.dating_doc_link && f.dating_doc_link.trim()) ? 1 : 0)
+    ];
+    const sortedFriends = filteredFriends.slice().sort((a, b) => {
+      return score(b)[0] - score(a)[0] || score(b)[1] - score(a)[1];
+    });
     // Apply pagination
     const friendsToShow = sortedFriends.slice(0, this.state.itemsToShow);
     const hasMoreItems = sortedFriends.length > this.state.itemsToShow;
