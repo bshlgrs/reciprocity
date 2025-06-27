@@ -44,3 +44,4 @@ For a single command to do all of this, go to the reciprocity_frontend folder an
 - Shuffle user order
 - Hide seen users
 - pop up telling them "it's time to act, you matched"
+- 

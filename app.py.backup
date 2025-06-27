@@ -5,7 +5,7 @@ from models import User, ses, Check, TaglineLog, CssLog
 from sqlalchemy import and_, or_
 from css_sanitizer import sanitize_css
 from ant_api import anthropic_client
-from monitor import get_score, get_score_with_explanation
+from monitor import get_score
 import time
 
 app = Flask(__name__, static_url_path="", static_folder="reciprocity_frontend/build")
@@ -713,7 +713,6 @@ def api_generate_css():
     return jsonify({"session_id": session_id})
 
 
-
 @app.route("/api/poll_css/<session_id>", methods=["GET"])
 def api_poll_css(session_id):
     """Poll for new CSS chunks"""
@@ -811,40 +810,6 @@ def api_get_css_logs():
         })
     
     return jsonify(logs_data)
-
-
-@app.route("/api/monitor_score", methods=["POST"])
-def api_monitor_score():
-    """Get the monitor safety score for a given text"""
-    # Get text parameter
-    text = request.json.get("text", "")
-    if not text:
-        return jsonify({"error": "Text parameter required"}), 400
-    
-    assert len(text) <= 1000, "Text must be 1000 characters or fewer"
-    
-    try:
-        # Get the monitor score and explanation
-        score, explanation = get_score_with_explanation(text)
-        
-        # Determine if this would be blocked (score >= 5)
-        blocked = score is None or score >= 5
-        
-        return jsonify({
-            "text": text,
-            "score": score,
-            "blocked": blocked,
-            "threshold": 5,
-            "explanation": explanation,
-            "message": "Score >= 5 means content would be blocked from global use" if blocked else "Score < 5 means content would be approved for global use"
-        })
-    
-    except Exception as e:
-        return jsonify({
-            "error": "Monitor evaluation failed",
-            "details": str(e),
-            "text": text
-        }), 500
 
 
 @app.errorhandler(500)
