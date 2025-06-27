@@ -1,9 +1,9 @@
-
+#%%
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 import numpy as np
 from tqdm import tqdm
-from monitor import get_score
+from monitor import get_score, get_score_with_explanation
 
 
 example_good_requests = [
@@ -40,7 +40,8 @@ y_true = []
 y_score = []
 
 for prompt_text, label in tqdm(all_prompts, desc="Processing prompts"):
-    score = get_score(prompt_text)
+    score, explanation = get_score_with_explanation(prompt_text)
+    print(explanation)
     if score is not None:
         y_true.append(label)
         y_score.append(score)
