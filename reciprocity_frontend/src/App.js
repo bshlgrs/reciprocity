@@ -533,7 +533,7 @@ class App extends React.Component {
     
     // Phase 1: Backspace the current subtitle
     const backspaceInterval = 50; // ms between each character removal
-    const typeInterval = 80; // ms between each character addition
+    const typeInterval = 30; // ms between each character addition
     
     const backspace = () => {
       if (currentText.length > 0) {
