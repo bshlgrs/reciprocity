@@ -12,7 +12,7 @@ body {
 }
 
 h1 {
-    font-size: 2.5em;
+    font-size: 3em;
     margin-bottom: 0px;
     
 }
@@ -33,7 +33,7 @@ h1 {
 }
 
 .manifold-probability {
-    font-size: 0.9em;
+    font-size: 1.08em;
     color: #666;
     margin-top: 5px;
     margin-bottom: 5px;
@@ -85,7 +85,7 @@ td {
 }
 
 .friend-table tbody tr:nth-child(even) {
-    background-color: #aaa;
+    background-color: #ddd;
 }
 
 .check-cell {
@@ -106,14 +106,14 @@ td {
 }
 
 .bio {
-    font-size: 0.9em;
+    font-size: 1.08em;
     font-style: italic;
     overflow-wrap: anywhere;
     
 }
 
 .name {
-    font-size: 1.1em;
+    font-size: 1.32em;
     
 }
 
@@ -121,7 +121,7 @@ td {
 /* Extra small devices (phones, 320px and up) */
 @media (max-width: 480px) {
     h1 {
-        font-size: 1.8em !important;
+        font-size: 2.16em !important;
         line-height: 1.2;
     }
     
@@ -159,13 +159,13 @@ td {
     }
     
     .subtitle {
-        font-size: 0.9em;
+        font-size: 1.08em;
         text-align: center;
         padding: 0 10px;
     }
     
     .signed-in-text {
-        font-size: 0.85em;
+        font-size: 1.02em;
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -187,7 +187,7 @@ td {
 /* Small devices (landscape phones, 481px to 768px) */
 @media (min-width: 481px) and (max-width: 768px) {
     h1 {
-        font-size: 2.1em;
+        font-size: 2.52em;
     }
     
     #header {
@@ -271,7 +271,7 @@ td {
 /* Large devices (desktops, 1024px and up) */
 @media (min-width: 1024px) {
     h1 {
-        font-size: 2.5em;
+        font-size: 3em;
     }
     
     #header {
@@ -297,7 +297,7 @@ select {
 button {
     padding: 0.5em 1.2em;
     margin: 0.3em 0.5em;
-    font-size: 1em;
+    font-size: 1.2em;
     cursor: pointer;
     
 }
@@ -377,7 +377,7 @@ button[disabled] {
 
 .example-label {
     display: block;
-    font-size: 1.3em;
+    font-size: 1.56em;
     font-weight: bold;
     margin-bottom: 15px;
     color: #333;
@@ -462,6 +462,15 @@ button[disabled] {
 .modal-title {
     margin-top: 0;
     margin-bottom: 16px;
-    font-size: 1.5em;
+    font-size: 1.8em;
     color: #886B7C;
+}
+
+.private-contact-info {
+    margin-top: 8px;
+    padding: 8px;
+    background-color: #f0f8ff;
+    border-left: 3px solid #886B7C;
+    font-size: 1.08em;
+    font-style: italic;
 }

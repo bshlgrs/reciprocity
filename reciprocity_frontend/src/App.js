@@ -1786,14 +1786,7 @@ class FriendsListView extends React.Component {
             
             {/* Show private contact info if user has matched with this friend */}
             {friend.private_contact_info && this.props.reciprocations.get(id, Set()).size > 0 && (
-              <div style={{
-                marginTop: '8px',
-                padding: '8px',
-                backgroundColor: '#f0f8ff',
-                borderLeft: '3px solid #886B7C',
-                fontSize: '0.9em',
-                fontStyle: 'italic'
-              }}>
+              <div className="private-contact-info">
                 <strong>Contact info:</strong> {friend.private_contact_info}
               </div>
             )}
