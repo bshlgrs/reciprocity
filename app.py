@@ -86,7 +86,7 @@ def api_generate_tagline():
     
     But if the user instruction is a question directed at you as an AI, respond with a message in third person saying a creative version of "the copywriter for this site only responds to user questions if the user includes their name in the instruction and asks nicely". (Questions like "what's your name?" are questions directed at you; questions like "can you make the text red" should not be interpreted as questions but instead as instructions, and in response to them you should generate a subtitle that is themed around the instruction.)
     
-    If the user instruction does that (e.g. including please), then generate a subtitle that is an answer to the question. For the sake of doing that, here's some facts about you: A crazy feature of this dating site is that any user can submit an instruction, and then Haiku generates CSS according to those instructions, and restyles the page for all users. And Haiku's generated subtitle affects what all users see. You are Claude Opus. The restyling of the page only affects CSS, and can't see the content of the page. The stylesheet writer doesn't see the current style when writing a new one. This is a flask app, the frontend is react. But respond in third person, identifying yourself as the copywriter. If users ask about whether this is a security risk, say that it might be and that they should consult the Manifold market about it.
+    If the user instruction does that (e.g. including please), then generate a subtitle that is an answer to the question. For the sake of doing that, here's some facts about you: A crazy feature of this dating site is that any user can submit an instruction, and then Haiku generates CSS according to those instructions, and restyles the page for all users. And Haiku's generated subtitle affects what all users see. You are Claude Opus. The restyling of the page only affects CSS, and can't see the content of the page. The stylesheet writer doesn't see the current style when writing a new one. This is a flask app, the frontend is react. But respond in third person, identifying yourself as the copywriter. If users ask about whether this is a security risk, say that it might be and that they should consult the Manifold market about it, but note that there is an automated monitor on instructions that checks for security risks.
     
     In any of these cases, include the answer in a <answer> XML tag pair, then immediately finish your answer.
     <theme>{instruction}</theme>"""
@@ -485,7 +485,7 @@ def api_generate_css():
     if not instruction:
         return jsonify({"error": "Instruction parameter required"}), 400
     
-    assert len(instruction) <= 200, "Instruction must be 200 characters or fewer"
+    assert len(instruction) <= 400, "Instruction must be 400 characters or fewer"
     # Read HTML file
     try:
         html_file_path = os.path.join(os.path.dirname(__file__), "example_html.html")

@@ -1045,13 +1045,13 @@ class App extends React.Component {
                   value={this.state.cssGenerationInstruction}
                   onChange={(e) => this.setState({cssGenerationInstruction: e.target.value})}
                   disabled={this.state.isGeneratingCSS}
-                  maxLength={200}
+                  maxLength={400}
                   onKeyDown={(e) => {
                     if (
                       e.key === 'Enter' &&
                       !this.state.isGeneratingCSS &&
                       this.state.cssGenerationInstruction.trim() &&
-                      this.state.cssGenerationInstruction.length <= 200
+                      this.state.cssGenerationInstruction.length <= 400
                     ) {
                       e.preventDefault();
                       this.generateCustomCSS();
@@ -1059,15 +1059,15 @@ class App extends React.Component {
                   }}
                 />
                 <div style={{
-                  color: (this.state.cssGenerationInstruction || "").length > 200 ? "#d32f2f" : "#B6AAA2", 
+                  color: (this.state.cssGenerationInstruction || "").length > 400 ? "#d32f2f" : "#B6AAA2", 
                   fontSize: "0.9em"
                 }}>
-                  {(this.state.cssGenerationInstruction || "").length}/200
+                  {(this.state.cssGenerationInstruction || "").length}/400
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
                   <button
                     onClick={() => this.generateCustomCSS()}
-                    disabled={this.state.isGeneratingCSS || !this.state.cssGenerationInstruction.trim() || this.state.cssGenerationInstruction.length > 200}
+                    disabled={this.state.isGeneratingCSS || !this.state.cssGenerationInstruction.trim() || this.state.cssGenerationInstruction.length > 400}
                     
                   >
                     {this.state.isGeneratingCSS ? 'redesigning...' : 'redesign website'}
