@@ -75,8 +75,15 @@ td {
     
 }
 
-#friend-table td:first-child {
+.friend-table td:first-child {
     width: 100%;
+}
+
+.friend-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: white;
 }
 
 /* It's really important for rows to be easily distinguishable from each other, so that the user can easily tell which row is which. You can do this by alternating colors, having borders, etc. */
