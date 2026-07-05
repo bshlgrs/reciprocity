@@ -5,11 +5,22 @@ from models import User, ses, Check, TaglineLog, CssLog, GlobalSettings, DEFAULT
 from sqlalchemy import and_, or_
 from css_sanitizer import sanitize_css
 from ant_api import anthropic_client
-from monitor import get_score, get_score_with_explanation
+from monitor import get_score
 import time
 import html
 
 app = Flask(__name__, static_url_path="", static_folder="reciprocity_frontend/build")
+
+
+@app.teardown_appcontext
+def remove_session(exception=None):
+    """Release this request thread's scoped session after each request.
+
+    ses is a scoped_session (thread-local); without remove() the per-thread
+    session and its DB connection would leak. Background threads clean up their
+    own session explicitly (see generate_css / monitor threads).
+    """
+    ses.remove()
 
 # Global dictionary to store chunks for each user session
 import threading
@@ -76,6 +87,24 @@ def get_current_user(access_token):
     )
     my_fb_id = me_info["id"]
     return User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
+
+
+# Shared secret for the themes admin page and set_theme. Set ADMIN_SECRET in the
+# environment (e.g. `heroku config:set ADMIN_SECRET=...`). If it's unset or blank,
+# admin access is disabled entirely (fail closed).
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+
+
+def is_valid_admin_key(provided_key):
+    """Constant-time check of a provided admin key against ADMIN_SECRET.
+
+    Returns False if ADMIN_SECRET is unset/blank (admin access disabled) or the
+    provided key is missing/wrong.
+    """
+    if not ADMIN_SECRET or not provided_key:
+        return False
+    import hmac
+    return hmac.compare_digest(str(provided_key), ADMIN_SECRET)
 
 
 @app.route("/api/generate_tagline", methods=["POST"])
@@ -297,7 +326,13 @@ def index():
 
 @app.route("/themes-394712738712")
 def themes_page():
-    """Display all themes that people have submitted"""
+    """Display all themes that people have submitted (admin-only)."""
+    # Gate behind the admin secret: this page can flip the global theme, so it
+    # must not be reachable by anyone who merely learns the URL.
+    admin_key = request.args.get("key")
+    if not is_valid_admin_key(admin_key):
+        return "Not authorized", 403
+
     # Get all tagline logs with their themes
     logs = ses.query(TaglineLog).order_by(TaglineLog.timestamp.desc()).all()
     
@@ -459,15 +494,18 @@ def themes_page():
                 }
             }
             
-                         async function setTheme(themeId, regenerateCss) {
+                         // The admin key that gated this page is in the URL; forward it to set_theme.
+            const ADMIN_KEY = new URLSearchParams(window.location.search).get('key');
+
+            async function setTheme(themeId, regenerateCss) {
                  try {
                      // Show loading status
                      showStatus(themeId, regenerateCss ? 'Setting theme and regenerating CSS...' : 'Setting tagline...', 'loading');
-                     
+
                      // Disable buttons for this theme
                      const buttons = document.querySelectorAll(`[onclick*="${themeId}"]`);
                      buttons.forEach(btn => btn.disabled = true);
-                     
+
                      // Make API call
                      const response = await fetch(`/api/set_theme`, {
                          method: 'POST',
@@ -476,7 +514,8 @@ def themes_page():
                          },
                          body: JSON.stringify({
                              theme_id: themeId,
-                             regenerate_css: regenerateCss
+                             regenerate_css: regenerateCss,
+                             key: ADMIN_KEY
                          })
                      });
                      
@@ -816,7 +855,11 @@ def api_generate_css():
                 if session_id in user_chunks:
                     user_chunks[session_id]['error'] = str(e)
                     user_chunks[session_id]['done'] = True
-    
+        finally:
+            # This runs in its own thread; release its scoped session so the
+            # connection returns to the pool (scoped_session is thread-local).
+            ses.remove()
+
     # Start both background threads
     monitor_thread = threading.Thread(target=monitor_background)
     css_thread = threading.Thread(target=generate_css_background)
@@ -929,43 +972,27 @@ def api_get_css_logs():
     return jsonify(logs_data)
 
 
-@app.route("/api/monitor_score", methods=["POST"])
-def api_monitor_score():
-    """Get the monitor safety score for a given text"""
-    # Get text parameter
-    text = request.json.get("text", "")
-    if not text:
-        return jsonify({"error": "Text parameter required"}), 400
-    
-    assert len(text) <= 1000, "Text must be 1000 characters or fewer"
-    
-    try:
-        # Get the monitor score and explanation
-        score, explanation = get_score_with_explanation(text)
-        
-        # Determine if this would be blocked (score >= 5)
-        blocked = score is None or score >= 5
-        
-        return jsonify({
-            "text": text,
-            "score": score,
-            "blocked": blocked,
-            "threshold": 5,
-            "explanation": explanation,
-            "message": "Score >= 5 means content would be blocked from global use" if blocked else "Score < 5 means content would be approved for global use"
-        })
-    
-    except Exception as e:
-        return jsonify({
-            "error": "Monitor evaluation failed",
-            "details": str(e),
-            "text": text
-        }), 500
-
-
 @app.route("/api/set_theme", methods=["POST"])
 def api_set_theme():
     """Set a previously submitted theme as the current theme"""
+    # This changes the site-wide tagline + CSS for everyone, so it must not be
+    # callable anonymously. Accept either a valid Facebook login OR the admin
+    # secret (used by the themes admin page).
+    admin_key = request.args.get("key") or (request.json or {}).get("key")
+    access_token = request.args.get("access_token")
+    if is_valid_admin_key(admin_key):
+        pass  # authorized as admin
+    elif access_token:
+        try:
+            get_current_user(access_token)
+        except (FacebookApiError, KeyError) as e:
+            print(f"Login error in api_set_theme: {e}")
+            return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
+        except Exception as e:
+            return jsonify({"error": "Invalid access token"}), 401
+    else:
+        return jsonify({"error": "Authentication required"}), 401
+
     # Get theme ID parameter
     theme_id = request.json.get("theme_id")
     if not theme_id:

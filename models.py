@@ -5,7 +5,7 @@ from typing import Dict, List
 from sqlalchemy import create_engine, Text, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from datetime import datetime
 
 
@@ -20,8 +20,13 @@ Base = declarative_base()
 
 Base.metadata.bind = eng
 
-Session = sessionmaker(bind=eng)
-ses = Session(autoflush=False)
+# scoped_session gives each thread its own underlying Session (thread-local),
+# so request handlers and background threads never share one Session. The proxy
+# forwards ses.query/add/commit/... to the current thread's session; callers
+# don't change. Each thread MUST call ses.remove() when done (see app.py's
+# teardown handler and the background-thread cleanup) to release its connection.
+session_factory = sessionmaker(bind=eng, autoflush=False)
+ses = scoped_session(session_factory)
 
 
 @dataclass
