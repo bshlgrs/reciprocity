@@ -2,4 +2,7 @@ build:
   docker:
     web: Dockerfile
 run:
-  web: python3 app.py
+  # Serve with gunicorn (a production WSGI server) instead of the Flask dev
+  # server. Threads (not just workers) because the app spawns background
+  # threads for CSS generation and uses a thread-local scoped_session.
+  web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120

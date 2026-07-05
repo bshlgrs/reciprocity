@@ -14,4 +14,7 @@ RUN pip install -r requirements.txt
 COPY . . 
 # Copy built npm package
 COPY --from=0 /app/build /app/reciprocity_frontend/build
-CMD ["python3", "app.py"]  
+# Serve with gunicorn (production WSGI server). Shell form so $PORT expands;
+# defaults to 5001 for local `docker run` where Heroku's $PORT isn't set.
+# Heroku's heroku.yml `run.web` overrides this CMD in production.
+CMD gunicorn app:app --bind 0.0.0.0:${PORT:-5001} --workers 2 --threads 4 --timeout 120
