@@ -642,16 +642,22 @@ def api_update_visibility():
 
 @app.route("/api/delete_user", methods=["POST", "DELETE"])
 def api_delete_user():
-    print("access token:", request.args.get("access_token"))
     try:
         current_user = get_current_user(request.args.get("access_token"))
     except (FacebookApiError, KeyError) as e:
         print(f"Login error in api_delete_user: {e}")
         return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
 
+    # Remove the user's checks (both directions) and the user record, then
+    # commit so the deletion actually persists.
     ses.query(Check).filter(Check.from_id == current_user.id).delete()
     ses.query(Check).filter(Check.to_id == current_user.id).delete()
     ses.delete(current_user)
+    try:
+        ses.commit()
+    except Exception as e:
+        ses.rollback()
+        raise e
     return "ok"
 
 

@@ -267,6 +267,12 @@ const InstructionAccordion = () => {
           <div>
             If they do, you can do the thing!
           </div>
+
+          <div style={{marginTop: '10px'}}>
+            You can delete your account at any time using the "Delete account"
+            button in the top right. This permanently removes your profile and
+            all of your checks, and can't be undone.
+          </div>
         </div>
       </CustomAccordionDetails>
     </CustomAccordion>
@@ -621,10 +627,17 @@ class App extends React.Component {
 
   deleteAccount() {
     fetch('/api/delete_user?access_token=' + this.state.accessToken, {method: "DELETE"})
-        .then(window.FB.logout(() => window.location.reload()))
-        .catch(() => {
-          window.FB.getLoginStatus((resp) => this.deleteAccount());
-        });
+      .then((resp) => {
+        if (!resp.ok) {
+          throw new Error('Delete failed with status ' + resp.status);
+        }
+        // Only log out and reload once the deletion has actually succeeded.
+        window.FB.logout(() => window.location.reload());
+      })
+      .catch((err) => {
+        console.error('Failed to delete account:', err);
+        alert('Sorry, we could not delete your account. Please try again.');
+      });
   }
 
   dismissWelcomeBackModal() {
@@ -672,7 +685,16 @@ class App extends React.Component {
                 <button onClick={() => window.FB.logout(() => window.location.reload())} >
                   {this.state.isSmallMobile ? 'Logout' : 'Log out'}
                 </button>
-                {/*<Button onClick={() => this.deleteAccount()}>Delete account</Button>*/}
+                <button
+                  className="delete-account-button"
+                  onClick={() => {
+                    if (window.confirm('Delete your account? This permanently removes your profile and all your checks. This cannot be undone.')) {
+                      this.deleteAccount();
+                    }
+                  }}
+                >
+                  {this.state.isSmallMobile ? 'Delete' : 'Delete account'}
+                </button>
                 <div className="signed-in-text">
                   <span className="highlight-color">
                     {this.state.isSmallMobile ? 'Signed in as' : 'Signed in as'}

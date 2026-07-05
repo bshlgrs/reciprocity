@@ -23,13 +23,26 @@ h1 {
 }
 
 #logout {
-    
+
     flex: none;
     margin-left: auto;
     margin-top: 30px;
     flex: none;
     text-align: right;
-    
+
+}
+
+.delete-account-button {
+    margin-left: 8px;
+    color: #a4331f;
+    border: 1px solid #a4331f;
+    background: transparent;
+    cursor: pointer;
+}
+
+.delete-account-button:hover {
+    background: #a4331f;
+    color: #fff;
 }
 
 .manifold-probability {
