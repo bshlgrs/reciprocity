@@ -19,7 +19,6 @@ eng = create_engine(database_url)
 Base = declarative_base()
 
 Base.metadata.bind = eng
-Base.metadata.create_all()
 
 Session = sessionmaker(bind=eng)
 ses = Session(autoflush=False)
@@ -128,7 +127,7 @@ class TaglineLog(Base):
     generated_tagline = Column(Text, nullable=False)
 
 
-@dataclass 
+@dataclass
 class CssLog(Base):
     __tablename__ = 'css_logs'
     id: int
@@ -136,10 +135,77 @@ class CssLog(Base):
     timestamp: datetime
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
     user_id: int
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)  # Allow anonymous users
     user_name: str
     user_name = Column(String, nullable=False)
     instruction: str
     instruction = Column(Text, nullable=False)
     generated_css: str
     generated_css = Column(Text, nullable=False)
+
+
+DEFAULT_TAGLINE = "what would you do, if they wanted to too?"
+
+# Sentinel so update(custom_css=None) can explicitly clear the CSS while an
+# omitted custom_css leaves the existing value untouched.
+_UNCHANGED = object()
+
+
+@dataclass
+class GlobalSettings(Base):
+    """Single-row table holding the site-wide tagline and custom CSS.
+
+    Persists the values that were previously kept only in module-level
+    variables, so they survive process restarts. There is always exactly one
+    row (id == 1); use GlobalSettings.get() to fetch or lazily create it.
+    """
+    __tablename__ = 'global_settings'
+    id: int
+    id = Column(Integer, primary_key=True)
+    tagline: str
+    tagline = Column(Text, nullable=False, default=DEFAULT_TAGLINE)
+    custom_css: str
+    custom_css = Column(Text, nullable=True)
+    updated_at: datetime
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    @staticmethod
+    def get():
+        """Return the singleton settings row, creating it on first use."""
+        settings = ses.query(GlobalSettings).filter(GlobalSettings.id == 1).one_or_none()
+        if settings is None:
+            settings = GlobalSettings(id=1, tagline=DEFAULT_TAGLINE, custom_css=None)
+            ses.add(settings)
+            try:
+                ses.commit()
+            except Exception as e:
+                ses.rollback()
+                raise e
+        return settings
+
+    @staticmethod
+    def update(tagline=_UNCHANGED, custom_css=_UNCHANGED):
+        """Write-through update of the singleton row.
+
+        Only the provided fields are changed; pass a value (including "" or
+        None for custom_css) to set it, or leave an argument at the sentinel
+        default to leave that field untouched.
+        """
+        settings = GlobalSettings.get()
+        if tagline is not _UNCHANGED:
+            settings.tagline = tagline
+        if custom_css is not _UNCHANGED:
+            settings.custom_css = custom_css
+        settings.updated_at = datetime.utcnow()
+        try:
+            ses.commit()
+        except Exception as e:
+            ses.rollback()
+            raise e
+        return settings
+
+
+# Create any tables that don't yet exist. This must run AFTER all model classes
+# are defined, or SQLAlchemy's metadata won't know about them (create_all is
+# idempotent and leaves existing tables untouched).
+Base.metadata.create_all(eng)

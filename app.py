@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 import requests
-from models import User, ses, Check, TaglineLog, CssLog
+from models import User, ses, Check, TaglineLog, CssLog, GlobalSettings, DEFAULT_TAGLINE
 from sqlalchemy import and_, or_
 from css_sanitizer import sanitize_css
 from ant_api import anthropic_client
@@ -17,10 +17,29 @@ import uuid
 user_chunks = {}  # {session_id: {'chunks': [...], 'done': False, 'error': None}}
 chunks_lock = threading.Lock()
 
-# Global CSS settings
+# Global CSS + tagline settings.
+#
+# These module-level variables are an in-memory cache of the single-row
+# GlobalSettings table. Reads (which happen on nearly every request) hit the
+# cache; every write updates both the cache and the DB (write-through) so the
+# values survive process restarts. global_css_lock guards the cache.
 global_custom_css = None
+global_tagline = DEFAULT_TAGLINE
 use_global_css = True  # Flag to enable/disable global CSS feature
 global_css_lock = threading.Lock()
+
+# Load the persisted tagline + CSS from the database on startup.
+def load_global_settings_from_database():
+    global global_custom_css, global_tagline
+    try:
+        settings = GlobalSettings.get()
+        global_custom_css = settings.custom_css
+        global_tagline = settings.tagline
+        print(f"Loaded global settings from database (tagline: {settings.tagline[:50]!r})")
+    except Exception as e:
+        print(f"Failed to load global settings from database: {e}")
+
+load_global_settings_from_database()
 
 
 
@@ -58,7 +77,6 @@ def get_current_user(access_token):
     my_fb_id = me_info["id"]
     return User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
 
-global_tagline = "what would you do, if they wanted to too?"
 
 @app.route("/api/generate_tagline", methods=["POST"])
 def api_generate_tagline():
@@ -103,16 +121,24 @@ def api_generate_tagline():
     import re
     print(response)
     match = re.search(r"<answer>(.*?)</answer>", response.content[0].text, re.DOTALL | re.IGNORECASE)
+    if not match:
+        # Model didn't return an <answer> block; don't crash, just report it.
+        return jsonify({"error": "Could not generate a tagline, please try again"}), 502
 
     global global_tagline
-    global_tagline = match.group(1).strip()
-    
+    new_tagline = match.group(1).strip()
+
+    # Update the in-memory cache and persist to the DB (write-through).
+    with global_css_lock:
+        global_tagline = new_tagline
+    GlobalSettings.update(tagline=new_tagline)
+
     # Log the tagline generation
     tagline_log = TaglineLog(
         user_id=current_user.id,
         user_name=current_user.name,
         instruction=instruction,
-        generated_tagline=global_tagline
+        generated_tagline=new_tagline
     )
     ses.add(tagline_log)
     try:
@@ -303,6 +329,7 @@ def themes_page():
                 padding: 15px;
                 border-radius: 8px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                position: relative;
             }}
             .theme-text {{
                 font-size: 16px;
@@ -314,6 +341,7 @@ def themes_page():
                 color: #666;
                 border-top: 1px solid #eee;
                 padding-top: 8px;
+                margin-bottom: 10px;
             }}
             .back-link {{
                 display: inline-block;
@@ -329,11 +357,66 @@ def themes_page():
                 margin-bottom: 30px;
                 color: #666;
             }}
+            .theme-buttons {{
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-top: 10px;
+            }}
+            .theme-button {{
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                transition: background-color 0.2s;
+            }}
+            .theme-button:hover {{
+                background: #0056b3;
+            }}
+            .theme-button:disabled {{
+                background: #ccc;
+                cursor: not-allowed;
+            }}
+            .theme-button.tagline-only {{
+                background: #28a745;
+            }}
+            .theme-button.tagline-only:hover {{
+                background: #1e7e34;
+            }}
+            .status-message {{
+                margin-top: 8px;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-size: 12px;
+                display: none;
+            }}
+            .status-success {{
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }}
+            .status-error {{
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }}
+            .status-loading {{
+                background: #d1ecf1;
+                color: #0c5460;
+                border: 1px solid #bee5eb;
+            }}
+
         </style>
     </head>
     <body>
         <a href="/" class="back-link">← Back to Reciprocity</a>
         <h1>All Submitted Themes</h1>
+        
+
+        
         <div class="stats">
             Total themes submitted: {len(logs)}
         </div>
@@ -349,11 +432,76 @@ def themes_page():
                     Submitted by {html.escape(log.user_name)} on {log.timestamp.strftime('%B %d, %Y at %I:%M %p')}
                     <br>Generated tagline: "{html.escape(log.generated_tagline)}"
                 </div>
+                <div class="theme-buttons">
+                    <button class="theme-button" onclick="setTheme({log.id}, true)">
+                        Set as Current Theme
+                    </button>
+                </div>
+                <div class="status-message" id="status-{log.id}"></div>
             </div>
         """
     
     html_content += """
         </div>
+        
+        <script>
+            function showStatus(themeId, message, type) {
+                const statusDiv = document.getElementById(`status-${themeId}`);
+                statusDiv.textContent = message;
+                statusDiv.className = `status-message status-${type}`;
+                statusDiv.style.display = 'block';
+                
+                // Hide after 5 seconds for success/error messages
+                if (type !== 'loading') {
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
+            
+                         async function setTheme(themeId, regenerateCss) {
+                 try {
+                     // Show loading status
+                     showStatus(themeId, regenerateCss ? 'Setting theme and regenerating CSS...' : 'Setting tagline...', 'loading');
+                     
+                     // Disable buttons for this theme
+                     const buttons = document.querySelectorAll(`[onclick*="${themeId}"]`);
+                     buttons.forEach(btn => btn.disabled = true);
+                     
+                     // Make API call
+                     const response = await fetch(`/api/set_theme`, {
+                         method: 'POST',
+                         headers: {
+                             'Content-Type': 'application/json',
+                         },
+                         body: JSON.stringify({
+                             theme_id: themeId,
+                             regenerate_css: regenerateCss
+                         })
+                     });
+                     
+                     const result = await response.json();
+                     
+                     if (response.ok && result.success) {
+                         let message = `Theme set successfully! New tagline: "${result.tagline}"`;
+                         if (regenerateCss) {
+                             message += result.css_applied ? ' CSS was regenerated and applied.' : ' CSS was regenerated but not applied (failed safety check).';
+                         }
+                         showStatus(themeId, message, 'success');
+                     } else {
+                         throw new Error(result.message || result.error || 'Unknown error');
+                     }
+                     
+                 } catch (error) {
+                     console.error('Error setting theme:', error);
+                     showStatus(themeId, `Error: ${error.message}`, 'error');
+                 } finally {
+                     // Re-enable buttons
+                     const buttons = document.querySelectorAll(`[onclick*="${themeId}"]`);
+                     buttons.forEach(btn => btn.disabled = false);
+                 }
+             }
+        </script>
     </body>
     </html>
     """
@@ -412,10 +560,13 @@ def api_update_user():
             
             if use_global_css:
                 # Update global CSS instead of user's individual CSS
+                sanitized_global_css = sanitize_css(custom_css, strict_mode=False)
                 with global_css_lock:
                     # Sanitize CSS before setting it globally to remove malicious content
-                    global_custom_css = sanitize_css(custom_css, strict_mode=False)
-        
+                    global_custom_css = sanitized_global_css
+                # Persist to the DB (write-through) so it survives restarts.
+                GlobalSettings.update(custom_css=sanitized_global_css)
+
             # Update user's individual CSS (also sanitize for safety)
             current_user.custom_css = sanitize_css(custom_css, strict_mode=False)
         else:
@@ -637,12 +788,18 @@ def api_generate_css():
                 print(f"DEBUG: Sanitized CSS length: {len(sanitized_css)}")
                 
                 # Only set global CSS if monitor approves (score < 5)
+                approved = False
                 with monitor_lock:
                     if monitor_result['score'] is not None and monitor_result['score'] < 5:
                         global_custom_css = sanitized_css
+                        approved = True
                         print(f"DEBUG: CSS approved by monitor (score: {monitor_result['score']}), setting global CSS")
                     else:
                         print(f"DEBUG: CSS blocked by monitor (score: {monitor_result['score']}, error: {monitor_result['error']})")
+
+                # Persist approved CSS to the DB (write-through) so it survives restarts.
+                if approved:
+                    GlobalSettings.update(custom_css=sanitized_css)
                 
                 # Log the CSS generation (regardless of whether it was approved for global use)
                 css_log = CssLog(
@@ -806,11 +963,84 @@ def api_monitor_score():
         }), 500
 
 
+@app.route("/api/set_theme", methods=["POST"])
+def api_set_theme():
+    """Set a previously submitted theme as the current theme"""
+    # Get theme ID parameter
+    theme_id = request.json.get("theme_id")
+    if not theme_id:
+        return jsonify({"error": "Theme ID required"}), 400
+    
+    # Get the theme from database
+    theme_log = ses.query(TaglineLog).filter(TaglineLog.id == theme_id).first()
+    if not theme_log:
+        return jsonify({"error": "Theme not found"}), 404
+    
+    global global_tagline, global_custom_css
+
+    # Set the global tagline to the stored tagline (cache + write-through to DB)
+    global_tagline = theme_log.generated_tagline
+    GlobalSettings.update(tagline=theme_log.generated_tagline)
+
+    # Get regenerate_css parameter (default to True)
+    regenerate_css = request.json.get("regenerate_css", True)
+
+    if regenerate_css:
+        # Look up existing CSS for this theme instruction instead of regenerating
+        try:
+            # Find the most recent CSS log for this instruction
+            css_log = ses.query(CssLog).filter(
+                CssLog.instruction == theme_log.instruction
+            ).order_by(CssLog.timestamp.desc()).first()
+
+            if css_log:
+                # Reuse the existing CSS (cache + write-through to DB)
+                with global_css_lock:
+                    global_custom_css = css_log.generated_css
+                GlobalSettings.update(custom_css=css_log.generated_css)
+                css_applied = True
+                print(f"Reusing existing CSS for theme: {theme_log.instruction}")
+            else:
+                # No existing CSS found - this shouldn't happen if the theme was properly generated
+                print(f"No existing CSS found for theme: {theme_log.instruction}")
+                css_applied = False
+            
+        except Exception as e:
+            print(f"CSS lookup failed: {e}")
+            css_applied = False
+    else:
+        css_applied = False
+    
+    return jsonify({
+        "success": True,
+        "message": "Theme set successfully",
+        "tagline": global_tagline,
+        "css_regenerated": regenerate_css,
+        "css_applied": css_applied if regenerate_css else None,
+        "theme": {
+            "id": theme_log.id,
+            "instruction": theme_log.instruction,
+            "user_name": theme_log.user_name,
+            "timestamp": theme_log.timestamp.isoformat()
+        }
+    })
+
+
 @app.errorhandler(500)
 def internal_error(error):
-    ses.rollback()
+    # Roll back any half-applied transaction and return a clean, generic error.
+    # Never surface tracebacks or internals to the client.
+    try:
+        ses.rollback()
+    except Exception as e:
+        print(f"Rollback in 500 handler failed: {e}")
+    return jsonify({"error": "Internal server error"}), 500
 
 
 if __name__ == "__main__":
-    # Threaded option to enable multiple instances for multiple user access support
-    app.run(host="0.0.0.0", threaded=True, port=int(os.getenv("PORT", "5001")), debug=True)
+    # Threaded option to enable multiple instances for multiple user access support.
+    # debug defaults to off; set FLASK_DEBUG=1 locally to enable the reloader/debugger.
+    # (Leaving the Werkzeug debugger on in production leaks tracebacks and an
+    # interactive console to users.)
+    debug = os.getenv("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", threaded=True, port=int(os.getenv("PORT", "5001")), debug=debug)
