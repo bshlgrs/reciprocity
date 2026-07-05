@@ -91,9 +91,9 @@ def api_generate_tagline():
     In any of these cases, include the answer in a <answer> XML tag pair, then immediately finish your answer.
     <theme>{instruction}</theme>"""
     response = anthropic_client.messages.create(
-        model="claude-opus-4-20250514",
+        model="claude-sonnet-5",
         max_tokens=500,
-        temperature=0.7,
+        thinking={"type": "disabled"},
         messages=[
             {"role": "user", "content": prompt}
         ]
@@ -587,7 +587,8 @@ def api_generate_css():
                     
                     <instructions>{instruction}</instructions>"""
                 }],
-                model="claude-3-5-haiku-latest",
+                model="claude-sonnet-5",
+                thinking={"type": "disabled"},
             ) as stream:
                 for text in stream.text_stream:
                     with chunks_lock:
