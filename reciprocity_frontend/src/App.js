@@ -625,8 +625,15 @@ class App extends React.Component {
     }
   }
 
+  // Send the Facebook access token in the Authorization header instead of the
+  // URL. Query-string tokens leak into server/proxy logs, browser history, and
+  // Referer headers; a header keeps this live credential out of all of those.
+  authHeader() {
+    return { 'Authorization': 'Bearer ' + this.state.accessToken };
+  }
+
   deleteAccount() {
-    fetch('/api/delete_user?access_token=' + this.state.accessToken, {method: "DELETE"})
+    fetch('/api/delete_user', {method: "DELETE", headers: this.authHeader()})
       .then((resp) => {
         if (!resp.ok) {
           throw new Error('Delete failed with status ' + resp.status);
@@ -642,11 +649,12 @@ class App extends React.Component {
 
   dismissWelcomeBackModal() {
     // Update the server to mark that user has logged in since reboot
-    fetch('/api/mark_logged_in_since_reboot?access_token=' + this.state.accessToken, {
+    fetch('/api/mark_logged_in_since_reboot', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...this.authHeader()
       }
     }).then(() => {
       this.setState({ showWelcomeBackModal: false });
@@ -1177,11 +1185,12 @@ class App extends React.Component {
     // Start backspacing immediately
     this.startSubtitleBackspace();
     
-    fetch(`/api/generate_tagline?access_token=${this.state.accessToken}`, {
+    fetch(`/api/generate_tagline`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...this.authHeader()
       },
       body: JSON.stringify({
         instruction: this.state.cssGenerationInstruction
@@ -1216,11 +1225,12 @@ class App extends React.Component {
 
     try {
       // Step 1: Start CSS generation
-      const response = await fetch(`/api/generate_css?access_token=${this.state.accessToken}`, {
+      const response = await fetch(`/api/generate_css`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...this.authHeader()
         },
         body: JSON.stringify({
           instruction: this.state.cssGenerationInstruction
@@ -1359,12 +1369,13 @@ class App extends React.Component {
   }
 
   changeMyInfo(newInfo) {
-    fetch('/api/update_user?access_token=' + this.state.accessToken, {
+    fetch('/api/update_user', {
       method: 'POST',
       body: JSON.stringify(newInfo),
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...this.authHeader()
       }
     })
     .then(response => {
@@ -1475,12 +1486,13 @@ class App extends React.Component {
   }
 
   sendUpdateRequest(myNewChecks) {
-    fetch('/api/update_checks?access_token=' + this.state.accessToken, {
+    fetch('/api/update_checks', {
       method: 'POST',
       body: JSON.stringify(myNewChecks),
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...this.authHeader()
       }
     })
     .then(response => {
@@ -1510,12 +1522,13 @@ class App extends React.Component {
 
   updateVisibility(newVisibility) {
     this.setState({updatingVisibility: true});
-    fetch('/api/update_visibility?access_token=' + this.state.accessToken, {
+    fetch('/api/update_visibility', {
       method: 'POST',
       body: JSON.stringify({'visibility': newVisibility}),
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...this.authHeader()
       }
     })
     .then(response => {
@@ -1591,7 +1604,7 @@ class App extends React.Component {
   }
 
   fetchInfo() {
-    fetch('/api/info?access_token=' + this.state.accessToken)
+    fetch('/api/info', { headers: this.authHeader() })
       .then(response => {
         if (response.status === 401) {
           // Check for Facebook login failure

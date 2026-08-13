@@ -89,6 +89,24 @@ def get_current_user(access_token):
     return User.find_or_create_by_fb_id(my_fb_id, me_info["name"])
 
 
+def get_access_token():
+    """Return the caller's Facebook access token.
+
+    The token is a live credential, so we take it from the Authorization header
+    ("Bearer <token>") to keep it out of URLs — query strings end up in server
+    and proxy access logs, browser history, and Referer headers, any of which
+    would leak the token. We still fall back to the ?access_token= query param
+    so already-open clients keep working during rollout; new clients send the
+    header. Returns None if no token is present.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[len("Bearer "):].strip()
+        if token:
+            return token
+    return request.args.get("access_token")
+
+
 # Shared secret for the themes admin page and set_theme. Set ADMIN_SECRET in the
 # environment (e.g. `heroku config:set ADMIN_SECRET=...`). If it's unset or blank,
 # admin access is disabled entirely (fail closed).
@@ -110,7 +128,7 @@ def is_valid_admin_key(provided_key):
 @app.route("/api/generate_tagline", methods=["POST"])
 def api_generate_tagline():
     # Validate user
-    access_token = request.args.get("access_token")
+    access_token = get_access_token()
     if not access_token:
         return jsonify({"error": "Access token required"}), 401
     
@@ -203,7 +221,7 @@ def get_all_friends(access_token):
 def api_info():
     global global_custom_css, use_global_css
     
-    access_token = request.args.get("access_token")
+    access_token = get_access_token()
     
     try:
         me_info = safe_facebook_api_call(
@@ -554,7 +572,7 @@ def api_global_css():
 @app.route("/api/update_checks", methods=["POST"])
 def api_update_checks():
     try:
-        current_user = get_current_user(request.args.get("access_token"))
+        current_user = get_current_user(get_access_token())
     except (FacebookApiError, KeyError) as e:
         print(f"Login error in api_update_checks: {e}")
         return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
@@ -569,7 +587,7 @@ def api_update_user():
     global global_custom_css, use_global_css
     
     try:
-        current_user = get_current_user(request.args.get("access_token"))
+        current_user = get_current_user(get_access_token())
     except (FacebookApiError, KeyError) as e:
         print(f"Login error in api_update_user: {e}")
         return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
@@ -624,7 +642,7 @@ def api_update_user():
 @app.route("/api/update_visibility", methods=["POST"])
 def api_update_visibility():
     try:
-        current_user = get_current_user(request.args.get("access_token"))
+        current_user = get_current_user(get_access_token())
     except (FacebookApiError, KeyError) as e:
         print(f"Login error in api_update_visibility: {e}")
         return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
@@ -643,7 +661,7 @@ def api_update_visibility():
 @app.route("/api/delete_user", methods=["POST", "DELETE"])
 def api_delete_user():
     try:
-        current_user = get_current_user(request.args.get("access_token"))
+        current_user = get_current_user(get_access_token())
     except (FacebookApiError, KeyError) as e:
         print(f"Login error in api_delete_user: {e}")
         return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
@@ -664,7 +682,7 @@ def api_delete_user():
 @app.route("/api/generate_css", methods=["POST"])
 def api_generate_css():
     # Validate user
-    access_token = request.args.get("access_token")
+    access_token = get_access_token()
     if not access_token:
         return jsonify({"error": "Access token required"}), 401
     
@@ -908,7 +926,7 @@ def api_poll_css(session_id):
 def api_get_tagline_logs():
     """Get recent tagline generation logs"""
     # Validate user
-    access_token = request.args.get("access_token")
+    access_token = get_access_token()
     if not access_token:
         return jsonify({"error": "Access token required"}), 401
     
@@ -945,7 +963,7 @@ def api_get_tagline_logs():
 def api_get_css_logs():
     """Get recent CSS generation logs"""
     # Validate user
-    access_token = request.args.get("access_token")
+    access_token = get_access_token()
     if not access_token:
         return jsonify({"error": "Access token required"}), 401
     
@@ -981,23 +999,13 @@ def api_get_css_logs():
 @app.route("/api/set_theme", methods=["POST"])
 def api_set_theme():
     """Set a previously submitted theme as the current theme"""
-    # This changes the site-wide tagline + CSS for everyone, so it must not be
-    # callable anonymously. Accept either a valid Facebook login OR the admin
-    # secret (used by the themes admin page).
+    # This changes the site-wide tagline + CSS for EVERYONE and bypasses the
+    # per-submission safety monitor that api_generate_css enforces, so it must
+    # be admin-only. A plain Facebook login is not enough: any logged-in user
+    # could otherwise replay a monitor-blocked theme's stored CSS site-wide.
     admin_key = request.args.get("key") or (request.json or {}).get("key")
-    access_token = request.args.get("access_token")
-    if is_valid_admin_key(admin_key):
-        pass  # authorized as admin
-    elif access_token:
-        try:
-            get_current_user(access_token)
-        except (FacebookApiError, KeyError) as e:
-            print(f"Login error in api_set_theme: {e}")
-            return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
-        except Exception as e:
-            return jsonify({"error": "Invalid access token"}), 401
-    else:
-        return jsonify({"error": "Authentication required"}), 401
+    if not is_valid_admin_key(admin_key):
+        return jsonify({"error": "Not authorized"}), 403
 
     # Get theme ID parameter
     theme_id = request.json.get("theme_id")

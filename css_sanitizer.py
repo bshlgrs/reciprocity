@@ -2,6 +2,50 @@
 import re
 import tinycss2
 from typing import List, Set, Optional
+from urllib.parse import urlparse
+
+
+# The only external hosts CSS is allowed to reference (Google Fonts). This must
+# be an exact-host allowlist: a substring match like "fonts.googleapis.com" in
+# the URL would accept fonts.googleapis.com.evil.com, evil.com/?fonts.googleapis.com,
+# and fonts.googleapis.com@evil.com, turning any url()/@import into an external
+# request that can exfiltrate page state.
+ALLOWED_URL_HOSTS = frozenset({
+    'fonts.googleapis.com',
+    'fonts.gstatic.com',
+})
+
+
+def _extract_urls(text: str) -> List[str]:
+    """Return the URLs inside url(...) functions in a serialized CSS fragment.
+
+    Handles optional quotes and surrounding whitespace: url(x), url('x'),
+    url( "x" ). Returns the raw inner strings (may be empty).
+    """
+    urls = []
+    for m in re.finditer(r'url\s*\(\s*(.*?)\s*\)', text, re.IGNORECASE | re.DOTALL):
+        inner = m.group(1).strip()
+        if len(inner) >= 2 and inner[0] in '"\'' and inner[-1] == inner[0]:
+            inner = inner[1:-1]
+        urls.append(inner)
+    return urls
+
+
+def _is_allowed_url(url: str) -> bool:
+    """True only for https URLs whose host is exactly an allowed font host.
+
+    Relative/protocol-relative/data/other-scheme URLs are all rejected, so the
+    only external requests CSS can trigger go to the font hosts we trust.
+    """
+    try:
+        parsed = urlparse(url.strip())
+    except ValueError:
+        return False
+    if parsed.scheme != 'https':
+        return False
+    # hostname is lowercased and strips any userinfo/port, so
+    # fonts.googleapis.com@evil.com parses to hostname evil.com.
+    return parsed.hostname in ALLOWED_URL_HOSTS
 
 
 class CSSSanitizer:
@@ -234,42 +278,32 @@ class CSSSanitizer:
         return None
     
     def _is_safe_google_fonts_import(self, rule) -> bool:
-        """Check if an @import rule is safely importing from Google Fonts."""
+        """Check if an @import rule references only allowed font hosts.
+
+        The @import URL may appear either as a url() function or as a bare
+        string prelude, so we check both the extracted url() targets and, if
+        there are none, the prelude string itself.
+        """
         if not hasattr(rule, 'prelude'):
             return False
-        
-        # Serialize the prelude to get the URL
-        prelude_str = tinycss2.serialize(rule.prelude).lower()
-        
-        # Check if it's a Google Fonts URL
-        google_fonts_patterns = [
-            r'fonts\.googleapis\.com',
-            r'fonts\.gstatic\.com',  # Also allow gstatic.com (Google's static content domain)
-        ]
-        
-        for pattern in google_fonts_patterns:
-            if re.search(pattern, prelude_str):
-                # Additional safety check - make sure it's a proper HTTPS URL
-                if 'https://' in prelude_str:
-                    return True
-        
-        return False
-    
+
+        prelude_str = tinycss2.serialize(rule.prelude)
+
+        urls = _extract_urls(prelude_str)
+        if not urls:
+            # `@import "https://...";` form: the prelude is a bare string token.
+            string_tokens = [
+                t.value for t in rule.prelude
+                if getattr(t, 'type', None) == 'string'
+            ]
+            urls = string_tokens
+
+        return bool(urls) and all(_is_allowed_url(u) for u in urls)
+
     def _is_safe_google_fonts_url(self, serialized_value: str) -> bool:
-        """Check if a URL function is safely pointing to Google Fonts."""
-        # Check if it's a Google Fonts URL
-        google_fonts_patterns = [
-            r'fonts\.googleapis\.com',
-            r'fonts\.gstatic\.com',  # Also allow gstatic.com (Google's static content domain)
-        ]
-        
-        for pattern in google_fonts_patterns:
-            if re.search(pattern, serialized_value):
-                # Additional safety check - make sure it's a proper HTTPS URL
-                if 'https://' in serialized_value:
-                    return True
-        
-        return False
+        """True only if every url() in the value targets an allowed font host."""
+        urls = _extract_urls(serialized_value)
+        return bool(urls) and all(_is_allowed_url(u) for u in urls)
     
     def _is_safe_declaration(self, declaration) -> bool:
         """Check if a CSS declaration is safe."""
