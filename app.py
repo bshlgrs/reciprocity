@@ -8,6 +8,11 @@ from ant_api import anthropic_client
 from monitor import get_score
 import time
 import html
+import hmac
+import hashlib
+import base64
+import binascii
+import json
 
 app = Flask(__name__, static_url_path="", static_folder="reciprocity_frontend/build")
 
@@ -121,8 +126,78 @@ def is_valid_admin_key(provided_key):
     """
     if not ADMIN_SECRET or not provided_key:
         return False
-    import hmac
     return hmac.compare_digest(str(provided_key), ADMIN_SECRET)
+
+
+# Facebook app secret, used to verify the signed_request that Facebook POSTs to
+# the data deletion callback. Set FACEBOOK_APP_SECRET in the environment (e.g.
+# `heroku config:set FACEBOOK_APP_SECRET=...`). If it's unset or blank, the
+# callback rejects everything (fail closed) rather than deleting on unverified
+# input.
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "")
+
+
+def _b64_decode_urlsafe(payload):
+    """Decode Facebook's url-safe base64, which omits the '=' padding."""
+    padding = "=" * (-len(payload) % 4)
+    return base64.urlsafe_b64decode(payload + padding)
+
+
+def parse_signed_request(signed_request):
+    """Verify and decode a Facebook signed_request.
+
+    Returns the decoded payload dict, or None if the request is malformed, uses
+    an unexpected algorithm, or fails signature verification. Returning None on
+    every failure (rather than raising) keeps the caller's handling uniform:
+    anything unverified is simply refused.
+    """
+    if not FACEBOOK_APP_SECRET or not signed_request:
+        return None
+    try:
+        encoded_sig, encoded_payload = signed_request.split(".", 1)
+    except ValueError:
+        return None
+    try:
+        sig = _b64_decode_urlsafe(encoded_sig)
+        data = json.loads(_b64_decode_urlsafe(encoded_payload))
+    except (ValueError, binascii.Error, UnicodeDecodeError):
+        return None
+
+    # Facebook signs with HMAC-SHA256. Reject anything else rather than
+    # trusting an algorithm the sender chose for us.
+    if str(data.get("algorithm", "")).upper() != "HMAC-SHA256":
+        return None
+
+    expected_sig = hmac.new(
+        FACEBOOK_APP_SECRET.encode("utf-8"),
+        encoded_payload.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    if not hmac.compare_digest(sig, expected_sig):
+        return None
+    return data
+
+
+def delete_all_data_for_user(user):
+    """Delete every record we hold for `user`, and commit.
+
+    Covers the users row, checks in both directions, and the tagline/css logs
+    (which store the user's Facebook-supplied name and their typed
+    instructions). Both the in-app delete button and the Facebook deletion
+    callback route through here so the two paths can't drift apart.
+    """
+    user_id = user.id
+    ses.query(Check).filter(Check.from_id == user_id).delete()
+    ses.query(Check).filter(Check.to_id == user_id).delete()
+    # tagline_logs.user_id is NOT NULL, so these rows are deleted outright.
+    ses.query(TaglineLog).filter(TaglineLog.user_id == user_id).delete()
+    ses.query(CssLog).filter(CssLog.user_id == user_id).delete()
+    ses.delete(user)
+    try:
+        ses.commit()
+    except Exception as e:
+        ses.rollback()
+        raise e
 
 
 @app.route("/api/generate_tagline", methods=["POST"])
@@ -666,17 +741,66 @@ def api_delete_user():
         print(f"Login error in api_delete_user: {e}")
         return jsonify({"error": "facebook_login_failed", "message": "Please log out and log back in"}), 401
 
-    # Remove the user's checks (both directions) and the user record, then
-    # commit so the deletion actually persists.
-    ses.query(Check).filter(Check.from_id == current_user.id).delete()
-    ses.query(Check).filter(Check.to_id == current_user.id).delete()
-    ses.delete(current_user)
-    try:
-        ses.commit()
-    except Exception as e:
-        ses.rollback()
-        raise e
+    delete_all_data_for_user(current_user)
     return "ok"
+
+
+@app.route("/api/fb_deletion_callback", methods=["POST"])
+def api_fb_deletion_callback():
+    """Facebook data deletion callback.
+
+    Facebook POSTs a signed_request here when a user removes this app from
+    their Facebook settings or deletes their Facebook account. Without this,
+    such a user's data would sit here forever: they have no reason to come back
+    and press the in-app delete button.
+
+    Responds with the confirmation_code + status_url that Facebook requires, so
+    the user can check on the request from Facebook's side.
+    """
+    signed_request = request.form.get("signed_request") or (
+        request.json.get("signed_request") if request.is_json else None
+    )
+    data = parse_signed_request(signed_request)
+    if data is None:
+        # Unverified: never delete on this. Covers a missing app secret, a bad
+        # signature, and malformed input alike.
+        return jsonify({"error": "invalid_signed_request"}), 400
+
+    fb_id = data.get("user_id")
+    if not fb_id:
+        return jsonify({"error": "missing_user_id"}), 400
+
+    user = ses.query(User).filter(User.fb_id == str(fb_id)).one_or_none()
+    if user is not None:
+        delete_all_data_for_user(user)
+    # If the user isn't found they have nothing stored here, which is the same
+    # end state Facebook is asking for, so still report success.
+
+    # The confirmation code is what the user quotes when asking about the
+    # request; the fb_id is enough to look it up in our logs.
+    confirmation_code = f"del_{fb_id}"
+    # Heroku's router talks plain HTTP to the dyno, so url_root says http://;
+    # force https so the link we hand Facebook is the public one.
+    root = request.url_root.rstrip("/").replace("http://", "https://", 1)
+    status_url = root + "/api/deletion_status?code=" + confirmation_code
+    return jsonify({"url": status_url, "confirmation_code": confirmation_code})
+
+
+@app.route("/api/deletion_status", methods=["GET"])
+def api_deletion_status():
+    """Human-readable status page linked from the deletion callback response."""
+    code = html.escape(request.args.get("code", ""))
+    return Response(
+        "<html><body style=\"font-family: sans-serif; max-width: 40em; margin: 3em auto;\">"
+        "<h1>Data deletion</h1>"
+        "<p>Your Reciprocity account and all associated data have been deleted. "
+        "This includes your profile, all of your checks, and your saved "
+        "tagline and CSS requests.</p>"
+        + (f"<p>Confirmation code: <code>{code}</code></p>" if code else "")
+        + "<p>Questions? Email bshlegeris@gmail.com.</p>"
+        "</body></html>",
+        mimetype="text/html",
+    )
 
 
 @app.route("/api/generate_css", methods=["POST"])
