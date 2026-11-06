@@ -2,11 +2,11 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List
-from sqlalchemy import create_engine, Text, Boolean, DateTime
+from sqlalchemy import create_engine, func, text, Text, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import sessionmaker, scoped_session
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 # Fix DATABASE_URL format for compatibility with newer SQLAlchemy versions
@@ -160,9 +160,9 @@ _UNCHANGED = object()
 class GlobalSettings(Base):
     """Single-row table holding the site-wide tagline and custom CSS.
 
-    Persists the values that were previously kept only in module-level
-    variables, so they survive process restarts. There is always exactly one
-    row (id == 1); use GlobalSettings.get() to fetch or lazily create it.
+    This table is the only copy of these values, so they survive restarts and
+    all gunicorn workers agree on them. There is always exactly one row
+    (id == 1); use GlobalSettings.get() to fetch or lazily create it.
     """
     __tablename__ = 'global_settings'
     id: int
@@ -210,7 +210,100 @@ class GlobalSettings(Base):
         return settings
 
 
+class CssGenerationSession(Base):
+    """Output of an in-progress CSS generation, waiting to be polled.
+
+    This lives in the DB because the background thread writing the output and
+    the request polling for it can be in different gunicorn workers. A row is
+    deleted once the client has polled its final state.
+    """
+    __tablename__ = 'css_generation_sessions'
+    # A generation still unfinished after this long has died (e.g. its worker was
+    # restarted). Without a limit the client would poll it forever.
+    TIMEOUT = timedelta(minutes=10)
+    # Rows this old were abandoned by their client, and are safe to delete.
+    MAX_AGE = timedelta(hours=1)
+
+    id = Column(String(36), primary_key=True)
+    pending = Column(Text, nullable=False, default="")  # Output not yet polled
+    done = Column(Boolean, nullable=False, default=False)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    @staticmethod
+    def _commit():
+        try:
+            ses.commit()
+        except Exception as e:
+            ses.rollback()
+            raise e
+
+    @staticmethod
+    def start(session_id, initial_text=""):
+        """Create a session, clearing out any abandoned ones."""
+        cutoff = datetime.utcnow() - CssGenerationSession.MAX_AGE
+        ses.query(CssGenerationSession).filter(CssGenerationSession.created_at < cutoff).delete()
+        ses.add(CssGenerationSession(id=session_id, pending=initial_text))
+        CssGenerationSession._commit()
+
+    @staticmethod
+    def append(session_id, text):
+        """Atomically add output, without overwriting a concurrent poll's changes."""
+        ses.query(CssGenerationSession).filter(CssGenerationSession.id == session_id).update(
+            {CssGenerationSession.pending: CssGenerationSession.pending + text},
+            synchronize_session=False,
+        )
+        CssGenerationSession._commit()
+
+    @staticmethod
+    def finish(session_id, final_text="", error=None):
+        """Atomically add the last output and mark the session done."""
+        ses.query(CssGenerationSession).filter(CssGenerationSession.id == session_id).update(
+            {
+                CssGenerationSession.pending: CssGenerationSession.pending + final_text,
+                CssGenerationSession.done: True,
+                CssGenerationSession.error: error,
+            },
+            synchronize_session=False,
+        )
+        CssGenerationSession._commit()
+
+    @staticmethod
+    def poll(session_id):
+        """Return and clear the output so far, or None if there's no such session.
+
+        Deletes the session once its final state has been returned.
+        """
+        session = (
+            ses.query(CssGenerationSession)
+            .filter(CssGenerationSession.id == session_id)
+            .populate_existing()
+            .one_or_none()
+        )
+        if session is None:
+            return None
+        result = {"content": session.pending, "done": session.done, "error": session.error}
+        if not session.done and datetime.utcnow() - session.created_at > CssGenerationSession.TIMEOUT:
+            result["done"] = True
+            result["error"] = "CSS generation timed out"
+        if result["done"]:
+            ses.delete(session)
+        else:
+            # Remove only what was read, keeping anything appended since then.
+            ses.query(CssGenerationSession).filter(CssGenerationSession.id == session_id).update(
+                {CssGenerationSession.pending: func.substr(CssGenerationSession.pending, len(result["content"]) + 1)},
+                synchronize_session=False,
+            )
+        CssGenerationSession._commit()
+        return result
+
+
 # Create any tables that don't yet exist. This must run AFTER all model classes
 # are defined, or SQLAlchemy's metadata won't know about them (create_all is
-# idempotent and leaves existing tables untouched).
-Base.metadata.create_all(eng)
+# idempotent and leaves existing tables untouched). Gunicorn workers all run this
+# at boot, and without the lock they can race to create a new table, which crashes
+# the loser's boot. The lock number is arbitrary.
+with eng.begin() as conn:
+    if eng.dialect.name == 'postgresql':
+        conn.execute(text("SELECT pg_advisory_xact_lock(7203941)"))
+    Base.metadata.create_all(conn)

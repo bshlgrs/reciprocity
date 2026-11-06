@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 import requests
-from models import User, ses, Check, TaglineLog, CssLog, GlobalSettings, DEFAULT_TAGLINE
+from models import User, ses, Check, TaglineLog, CssLog, GlobalSettings, CssGenerationSession
 from sqlalchemy import and_, or_
 from css_sanitizer import sanitize_css
 from ant_api import anthropic_client
@@ -27,35 +27,26 @@ def remove_session(exception=None):
     """
     ses.remove()
 
-# Global dictionary to store chunks for each user session
 import threading
 import uuid
-user_chunks = {}  # {session_id: {'chunks': [...], 'done': False, 'error': None}}
-chunks_lock = threading.Lock()
 
-# Global CSS + tagline settings.
-#
-# These module-level variables are an in-memory cache of the single-row
-# GlobalSettings table. Reads (which happen on nearly every request) hit the
-# cache; every write updates both the cache and the DB (write-through) so the
-# values survive process restarts. global_css_lock guards the cache.
-global_custom_css = None
-global_tagline = DEFAULT_TAGLINE
+# How often CSS generation writes its output to the DB, rather than once per token.
+# The frontend polls every 600ms.
+CSS_FLUSH_INTERVAL_SECONDS = 0.25
+
+# The site-wide tagline + CSS live only in the GlobalSettings table, never in
+# process memory: gunicorn runs multiple workers, so an in-memory copy would
+# differ between them.
 use_global_css = True  # Flag to enable/disable global CSS feature
-global_css_lock = threading.Lock()
 
-# Load the persisted tagline + CSS from the database on startup.
-def load_global_settings_from_database():
-    global global_custom_css, global_tagline
-    try:
-        settings = GlobalSettings.get()
-        global_custom_css = settings.custom_css
-        global_tagline = settings.tagline
-        print(f"Loaded global settings from database (tagline: {settings.tagline[:50]!r})")
-    except Exception as e:
-        print(f"Failed to load global settings from database: {e}")
-
-load_global_settings_from_database()
+# Create the settings row at startup so requests don't race to create it. Gunicorn
+# workers can race here on a fresh DB; the loser just logs, as the row now exists.
+try:
+    GlobalSettings.get()
+except Exception as e:
+    print(f"Failed to initialize global settings: {e}")
+finally:
+    ses.remove()
 
 
 
@@ -247,12 +238,7 @@ def api_generate_tagline():
         # Model didn't return an <answer> block; don't crash, just report it.
         return jsonify({"error": "Could not generate a tagline, please try again"}), 502
 
-    global global_tagline
     new_tagline = match.group(1).strip()
-
-    # Update the in-memory cache and persist to the DB (write-through).
-    with global_css_lock:
-        global_tagline = new_tagline
     GlobalSettings.update(tagline=new_tagline)
 
     # Log the tagline generation
@@ -269,12 +255,11 @@ def api_generate_tagline():
         ses.rollback()
         raise e
     
-    return global_tagline
+    return new_tagline
 
 @app.route("/api/get_tagline")
 def api_get_tagline():
-    print("global_tagline", global_tagline)
-    return global_tagline
+    return GlobalSettings.get().tagline
 
 def get_all_friends(access_token):
     url = f"https://graph.facebook.com/v9.0/me/friends?access_token={access_token}&fields=name,id,picture"
@@ -294,8 +279,6 @@ def get_all_friends(access_token):
 
 @app.route("/api/info")
 def api_info():
-    global global_custom_css, use_global_css
-    
     access_token = get_access_token()
     
     try:
@@ -333,14 +316,10 @@ def api_info():
             .all()
         )
 
-    # If global CSS is enabled, override the current user's CSS with the global one
-    # (but don't save to database)
-    if use_global_css:
-        with global_css_lock:
-            # Create a temporary copy of the user object with modified CSS
-            # We'll modify the custom_css attribute temporarily for the response
-            original_css = current_user.custom_css
-            current_user.custom_css = global_custom_css
+    # If global CSS is enabled, show it in place of the current user's CSS. Only
+    # the response changes: setting it on current_user would save it to their row
+    # at the commit below.
+    response_css = GlobalSettings.get().custom_css if use_global_css else current_user.custom_css
 
     first_time_logging_in = not current_user.has_logged_in_since_reboot
     print("first_time_logging_in", first_time_logging_in)
@@ -356,7 +335,7 @@ def api_info():
         'bio': current_user.bio,
         'phone_number': current_user.phone_number,
         'dating_doc_link': current_user.dating_doc_link,
-        'custom_css': current_user.custom_css,
+        'custom_css': response_css,
         'private_contact_info': current_user.private_contact_info,
         'has_logged_in_since_reboot': current_user.has_logged_in_since_reboot
     }
@@ -642,7 +621,7 @@ def themes_page():
     
 @app.route("/api/global_css.css")
 def api_global_css():
-    return Response(global_custom_css, content_type='text/css')
+    return Response(GlobalSettings.get().custom_css, content_type='text/css')
 
 @app.route("/api/update_checks", methods=["POST"])
 def api_update_checks():
@@ -659,8 +638,6 @@ def api_update_checks():
 
 @app.route("/api/update_user", methods=["POST"])
 def api_update_user():
-    global global_custom_css, use_global_css
-    
     try:
         current_user = get_current_user(get_access_token())
     except (FacebookApiError, KeyError) as e:
@@ -691,13 +668,9 @@ def api_update_user():
             assert len(custom_css) <= 20000
             
             if use_global_css:
-                # Update global CSS instead of user's individual CSS
-                sanitized_global_css = sanitize_css(custom_css, strict_mode=False)
-                with global_css_lock:
-                    # Sanitize CSS before setting it globally to remove malicious content
-                    global_custom_css = sanitized_global_css
-                # Persist to the DB (write-through) so it survives restarts.
-                GlobalSettings.update(custom_css=sanitized_global_css)
+                # Update global CSS instead of user's individual CSS, sanitizing
+                # first to remove malicious content
+                GlobalSettings.update(custom_css=sanitize_css(custom_css, strict_mode=False))
 
             # Update user's individual CSS (also sanitize for safety)
             current_user.custom_css = sanitize_css(custom_css, strict_mode=False)
@@ -838,19 +811,13 @@ def api_generate_css():
 
     # Generate unique session ID
     session_id = str(uuid.uuid4())
-    
-    # Initialize session data
-    with chunks_lock:
-        user_chunks[session_id] = {
-            'chunks': [],
-            'done': False,
-            'error': None
-        }
 
     # Capture user info for the background thread
     user_id = current_user.id
     user_name = current_user.name
-    
+
+    CssGenerationSession.start(session_id, "Starting CSS generation...\n")
+
     other_chunk_list = []
     
     # Shared monitor result data
@@ -870,12 +837,9 @@ def api_generate_css():
                 monitor_result['done'] = True
     
     def generate_css_background():
-        """Background function to generate CSS and store chunks"""
+        """Background function to generate CSS and store its output for polling"""
+        unflushed = []
         try:
-            # Add initial message
-            with chunks_lock:
-                user_chunks[session_id]['chunks'].append("Starting CSS generation...\n")
-            
             with anthropic_client.messages.stream(
                 max_tokens=4096,
                 messages=[{
@@ -928,18 +892,18 @@ def api_generate_css():
                 model="claude-sonnet-5",
                 thinking={"type": "disabled"},
             ) as stream:
+                last_flush = time.monotonic()
                 for text in stream.text_stream:
-                    with chunks_lock:
-                        if session_id in user_chunks:  # Check if session still exists
-                            user_chunks[session_id]['chunks'].append(text)
-                            other_chunk_list.append(text)
-            
-            # Mark as done
-            with chunks_lock:
-                if session_id in user_chunks:
-                    user_chunks[session_id]['done'] = True
+                    other_chunk_list.append(text)
+                    unflushed.append(text)
+                    if time.monotonic() - last_flush >= CSS_FLUSH_INTERVAL_SECONDS:
+                        CssGenerationSession.append(session_id, "".join(unflushed))
+                        unflushed.clear()
+                        last_flush = time.monotonic()
 
-            global global_custom_css
+            # Mark as done
+            CssGenerationSession.finish(session_id, "".join(unflushed))
+            unflushed.clear()
 
             # Wait for monitor result before setting global CSS
             while True:
@@ -948,61 +912,56 @@ def api_generate_css():
                         break
                 time.sleep(0.1)
 
-            with global_css_lock:
-                # Join all chunks to get the complete response
-                raw_response = "".join(other_chunk_list)
-                
-                # Extract CSS from markdown code blocks
-                import re
-                css_match = re.search(r'```(?:css)?\s*\n(.*?)\n```', raw_response, re.DOTALL | re.IGNORECASE)
-                if css_match:
-                    extracted_css = css_match.group(1).strip()
-                else:
-                    # Fallback: try to extract anything that looks like CSS
-                    # Look for content between { and } which is likely CSS
-                    if '{' in raw_response and '}' in raw_response:
-                        extracted_css = raw_response
-                    else:
-                        extracted_css = ""
-                
-                print(f"DEBUG: Raw response length: {len(raw_response)}")
-                print(f"DEBUG: Extracted CSS length: {len(extracted_css)}")
-                print(f"DEBUG: First 200 chars of extracted CSS: {extracted_css[:200]}")
-                
-                # Sanitize the extracted CSS
-                sanitized_css = sanitize_css(extracted_css, strict_mode=True)
-                
-                print(f"DEBUG: Sanitized CSS length: {len(sanitized_css)}")
-                
-                # Only set global CSS if monitor approves (score < 5)
-                approved = False
-                with monitor_lock:
-                    if monitor_result['score'] is not None and monitor_result['score'] < 5:
-                        global_custom_css = sanitized_css
-                        approved = True
-                        print(f"DEBUG: CSS approved by monitor (score: {monitor_result['score']}), setting global CSS")
-                    else:
-                        print(f"DEBUG: CSS blocked by monitor (score: {monitor_result['score']}, error: {monitor_result['error']})")
+            # Join all chunks to get the complete response
+            raw_response = "".join(other_chunk_list)
 
-                # Persist approved CSS to the DB (write-through) so it survives restarts.
-                if approved:
-                    GlobalSettings.update(custom_css=sanitized_css)
-                
-                # Log the CSS generation (regardless of whether it was approved for global use)
-                css_log = CssLog(
-                    user_id=user_id,
-                    user_name=user_name,
-                    instruction=instruction,
-                    generated_css=sanitized_css  # Log the generated CSS
-                )
-                ses.add(css_log)
-                ses.commit()
+            # Extract CSS from markdown code blocks
+            import re
+            css_match = re.search(r'```(?:css)?\s*\n(.*?)\n```', raw_response, re.DOTALL | re.IGNORECASE)
+            if css_match:
+                extracted_css = css_match.group(1).strip()
+            else:
+                # Fallback: try to extract anything that looks like CSS
+                # Look for content between { and } which is likely CSS
+                if '{' in raw_response and '}' in raw_response:
+                    extracted_css = raw_response
+                else:
+                    extracted_css = ""
+
+            print(f"DEBUG: Raw response length: {len(raw_response)}")
+            print(f"DEBUG: Extracted CSS length: {len(extracted_css)}")
+            print(f"DEBUG: First 200 chars of extracted CSS: {extracted_css[:200]}")
+
+            # Sanitize the extracted CSS
+            sanitized_css = sanitize_css(extracted_css, strict_mode=True)
+
+            print(f"DEBUG: Sanitized CSS length: {len(sanitized_css)}")
+
+            # Only set global CSS if monitor approves (score < 5)
+            approved = False
+            with monitor_lock:
+                if monitor_result['score'] is not None and monitor_result['score'] < 5:
+                    approved = True
+                    print(f"DEBUG: CSS approved by monitor (score: {monitor_result['score']}), setting global CSS")
+                else:
+                    print(f"DEBUG: CSS blocked by monitor (score: {monitor_result['score']}, error: {monitor_result['error']})")
+
+            if approved:
+                GlobalSettings.update(custom_css=sanitized_css)
+
+            # Log the CSS generation (regardless of whether it was approved for global use)
+            css_log = CssLog(
+                user_id=user_id,
+                user_name=user_name,
+                instruction=instruction,
+                generated_css=sanitized_css  # Log the generated CSS
+            )
+            ses.add(css_log)
+            ses.commit()
         except Exception as e:
-            # Store error
-            with chunks_lock:
-                if session_id in user_chunks:
-                    user_chunks[session_id]['error'] = str(e)
-                    user_chunks[session_id]['done'] = True
+            # Store error, for the client to find if it's still polling
+            ses.rollback()
+            CssGenerationSession.finish(session_id, "".join(unflushed), error=str(e))
         finally:
             # This runs in its own thread; release its scoped session so the
             # connection returns to the pool (scoped_session is thread-local).
@@ -1024,26 +983,10 @@ def api_generate_css():
 @app.route("/api/poll_css/<session_id>", methods=["GET"])
 def api_poll_css(session_id):
     """Poll for new CSS chunks"""
-    with chunks_lock:
-        if session_id not in user_chunks:
-            return jsonify({"error": "Invalid session ID"}), 404
-        
-        # Get and flush chunks
-        session_data = user_chunks[session_id]
-        chunks = session_data['chunks'][:]  # Copy the list
-        session_data['chunks'] = []  # Clear the chunks
-        
-        response_data = {
-            "content": "".join(chunks),
-            "done": session_data['done'],
-            "error": session_data['error']
-        }
-        
-        # Clean up completed sessions
-        if session_data['done']:
-            del user_chunks[session_id]
-        
-        return jsonify(response_data)
+    response_data = CssGenerationSession.poll(session_id)
+    if response_data is None:
+        return jsonify({"error": "Invalid session ID"}), 404
+    return jsonify(response_data)
 
 
 @app.route("/api/logs/taglines", methods=["GET"])
@@ -1141,10 +1084,7 @@ def api_set_theme():
     if not theme_log:
         return jsonify({"error": "Theme not found"}), 404
     
-    global global_tagline, global_custom_css
-
-    # Set the global tagline to the stored tagline (cache + write-through to DB)
-    global_tagline = theme_log.generated_tagline
+    # Set the global tagline to the stored tagline
     GlobalSettings.update(tagline=theme_log.generated_tagline)
 
     # Get regenerate_css parameter (default to True)
@@ -1159,9 +1099,7 @@ def api_set_theme():
             ).order_by(CssLog.timestamp.desc()).first()
 
             if css_log:
-                # Reuse the existing CSS (cache + write-through to DB)
-                with global_css_lock:
-                    global_custom_css = css_log.generated_css
+                # Reuse the existing CSS
                 GlobalSettings.update(custom_css=css_log.generated_css)
                 css_applied = True
                 print(f"Reusing existing CSS for theme: {theme_log.instruction}")
@@ -1179,7 +1117,7 @@ def api_set_theme():
     return jsonify({
         "success": True,
         "message": "Theme set successfully",
-        "tagline": global_tagline,
+        "tagline": theme_log.generated_tagline,
         "css_regenerated": regenerate_css,
         "css_applied": css_applied if regenerate_css else None,
         "theme": {
