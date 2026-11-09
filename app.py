@@ -27,6 +27,7 @@ def remove_session(exception=None):
     """
     ses.remove()
 
+import dataclasses
 import threading
 import uuid
 
@@ -662,29 +663,29 @@ def api_update_user():
     if "private_contact_info" in updated_info:
         assert len(updated_info["private_contact_info"]) <= 1000
         current_user.private_contact_info = updated_info["private_contact_info"]
-    if "custom_css" in updated_info:
+    # With global CSS on, the site's CSS may only change via api_generate_css, once
+    # the safety monitor approves it. So ignore custom_css here: the frontend sends
+    # the CSS it generated on every save, whatever the monitor decided.
+    if "custom_css" in updated_info and not use_global_css:
         custom_css = updated_info["custom_css"]
         if custom_css is not None:
             assert len(custom_css) <= 20000
-            
-            if use_global_css:
-                # Update global CSS instead of user's individual CSS, sanitizing
-                # first to remove malicious content
-                GlobalSettings.update(custom_css=sanitize_css(custom_css, strict_mode=False))
-
-            # Update user's individual CSS (also sanitize for safety)
             current_user.custom_css = sanitize_css(custom_css, strict_mode=False)
         else:
-            if not use_global_css:
-                # Clear user's individual CSS
-                current_user.custom_css = None
+            current_user.custom_css = None
 
     try:
         ses.commit()
     except Exception as e:
         ses.rollback()
         raise e
-    return jsonify(current_user)
+
+    user_data = dataclasses.asdict(current_user)
+    if use_global_css:
+        # As in api_info. The frontend applies this CSS after saving, which also
+        # replaces CSS the monitor blocked, that it showed while generating.
+        user_data["custom_css"] = GlobalSettings.get().custom_css
+    return jsonify(user_data)
 
 
 @app.route("/api/update_visibility", methods=["POST"])
@@ -901,8 +902,7 @@ def api_generate_css():
                         unflushed.clear()
                         last_flush = time.monotonic()
 
-            # Mark as done
-            CssGenerationSession.finish(session_id, "".join(unflushed))
+            CssGenerationSession.append(session_id, "".join(unflushed))
             unflushed.clear()
 
             # Wait for monitor result before setting global CSS
@@ -958,6 +958,11 @@ def api_generate_css():
             )
             ses.add(css_log)
             ses.commit()
+
+            # Only report done once the global CSS reflects the monitor's decision.
+            # On done the frontend saves and applies the global CSS it gets back,
+            # so reporting done earlier would show the old CSS for a while.
+            CssGenerationSession.finish(session_id)
         except Exception as e:
             # Store error, for the client to find if it's still polling
             ses.rollback()

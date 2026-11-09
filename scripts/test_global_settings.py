@@ -137,12 +137,9 @@ try:
     check("polling reaches done with no error", polled.get("done") is True and polled.get("error") is None, polled)
     r = requests.get(f"{base}/api/poll_css/{session_id}", timeout=10)
     check("the session is gone after its final poll", r.status_code == 404, r.status_code)
-    for _ in range(100):
-        served_css = read_many(base + "/api/global_css.css", n=8)
-        if set(served_css) == {"body { color: purple; }"}:
-            break
-        time.sleep(0.1)
-    check("both workers serve the generated CSS", set(served_css) == {"body { color: purple; }"}, dict(served_css))
+    served_css = read_many(base + "/api/global_css.css", n=20)
+    check("by done, both workers serve the generated CSS",
+          set(served_css) == {"body { color: purple; }"}, dict(served_css))
 finally:
     stop_server(proc)
 
@@ -157,45 +154,67 @@ check("global_css reads the DB", client.get("/api/global_css.css").text == "body
 
 auth = {"Authorization": "Bearer faketoken"}
 
+
+def poll(session_id):
+    return client.get(f"/api/poll_css/{session_id}")
+
+
+def stored_user_css():
+    css = ses.query(User).filter(User.id == uid).one().custom_css
+    ses.remove()
+    return css
+
+
 r = client.post("/api/generate_tagline", json={"instruction": "x"}, headers=auth)
 check("generate_tagline returns the new tagline", r.text == "generated tagline", r.text[:200])
 check("generate_tagline is persisted", client.get("/api/get_tagline").text == "generated tagline")
 
-r = client.post("/api/update_user", json={"custom_css": "body { color: orange; }"}, headers=auth)
+# update_user must not bypass the monitor by setting the global CSS directly.
+r = client.post("/api/update_user", json={"custom_css": "body { color: orange; }", "bio": "new bio"},
+                headers=auth)
 check("update_user succeeds", r.status_code == 200, r.text[:200])
-check("update_user CSS is persisted", "orange" in client.get("/api/global_css.css").text)
+check("update_user still saves other fields", r.status_code == 200 and r.json["bio"] == "new bio", r.text[:200])
+css = client.get("/api/global_css.css").text
+check("update_user can't change the global CSS", css == "body{color:green}", css)
+check("update_user doesn't store the CSS on the user either", stored_user_css() == "my own css", stored_user_css())
+check("update_user returns the global CSS, for the frontend to apply",
+      r.status_code == 200 and r.json["custom_css"] == "body{color:green}", r.text[:200])
 
 
-def generate_css(score):
-    """Run generate_css to completion; the DB write happens on a background thread."""
+def generate_css_like_frontend(score):
+    """Generate CSS as the frontend does: poll until done, then save settings.
+
+    Returns (the global CSS once done, the CSS the save returns for the frontend
+    to apply).
+    """
     appmod.get_score = lambda instruction: score
-    log_count = ses.query(CssLog).count()
-    ses.remove()
     r = client.post("/api/generate_css", json={"instruction": f"theme {score}"}, headers=auth)
     assert r.status_code == 200, r.text
-    for _ in range(100):
-        count = ses.query(CssLog).count()
-        ses.remove()
-        if count > log_count:
-            return
-        time.sleep(0.1)
-    raise RuntimeError("generate_css did not finish")
+    session_id = r.json["session_id"]
+    for _ in range(200):
+        if poll(session_id).json["done"]:
+            break
+        time.sleep(0.05)
+    else:
+        raise RuntimeError("generate_css did not finish")
+    served = client.get("/api/global_css.css").text
+    saved = client.post("/api/update_user", json={"custom_css": stubbed_app.GENERATED_CSS}, headers=auth)
+    return served, saved.json["custom_css"]
 
 
-generate_css(score=9)
-css = client.get("/api/global_css.css").text
-check("monitor-blocked CSS is not applied", "purple" not in css and "orange" in css, css)
-generate_css(score=1)
-check("monitor-approved CSS is persisted", "purple" in client.get("/api/global_css.css").text)
+served, saved = generate_css_like_frontend(score=9)
+check("monitor-blocked CSS is not applied", served == "body{color:green}", served)
+check("saving after blocked CSS doesn't apply it either", client.get("/api/global_css.css").text == "body{color:green}")
+check("saving after blocked CSS returns the old CSS, replacing the blocked CSS on screen",
+      saved == "body{color:green}", saved)
+served, saved = generate_css_like_frontend(score=1)
+check("by done, monitor-approved CSS is applied", served == "body { color: purple; }", served)
+check("saving after approved CSS returns it, so the screen keeps it", saved == "body { color: purple; }", saved)
 
 # --- CSS generation sessions --------------------------------------------------
 
 from datetime import datetime, timedelta
 from models import CssGenerationSession as Session
-
-
-def poll(session_id):
-    return client.get(f"/api/poll_css/{session_id}")
 
 
 # A failing stream reports its error, along with the output it did manage to produce.
