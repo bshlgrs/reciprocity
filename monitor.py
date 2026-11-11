@@ -3,19 +3,20 @@ from ant_api import anthropic_client
 
 
 
-HAIKU = "claude-3-5-haiku-latest"
-SONNET = "claude-sonnet-4-20250514"
+MONITOR_MODEL = "claude-sonnet-5-5"
 
 def simple_get_monitor_score(prompt):
     response = anthropic_client.messages.create(
-        model=SONNET,
-        max_tokens=500,
-        temperature=0.7,
+        model=MONITOR_MODEL,
+        max_tokens=16000,  # Includes thinking, so a low cap could cut off the score
+        output_config={"effort": "high"},
         messages=[
             {"role": "user", "content": prompt}
         ]
     )
-    return response.content[0].text
+    # Read text by block type: the response can start with a thinking block. A refusal
+    # has no score in it, so the CSS is blocked like any other unscorable response.
+    return "".join(block.text for block in response.content if block.type == "text")
 
 
 prompt = """

@@ -31,6 +31,19 @@ import dataclasses
 import threading
 import uuid
 
+# Shared settings for the tagline and CSS generation calls (client.beta.messages,
+# for the fallbacks parameter).
+GENERATION_PARAMS = dict(
+    model="claude-sonnet-5-5",
+    # Thinking can't be disabled on this model. At low effort it skips thinking on
+    # most simple requests, keeping responses fast.
+    output_config={"effort": "low"},
+    # If the model declines in a category that has a fallback (cyber or frontier
+    # LLM), the API retries the request on another model within the same call.
+    betas=["server-side-fallback-2026-07-01"],
+    fallbacks="default",
+)
+
 # How often CSS generation writes its output to the DB, rather than once per token.
 # The frontend polls every 600ms.
 CSS_FLUSH_INTERVAL_SECONDS = 0.25
@@ -218,25 +231,25 @@ def api_generate_tagline():
     
     But if the user instruction is a question directed at you as an AI, respond with a message in third person saying a creative version of "the copywriter for this site only responds to user questions if the user includes their name in the instruction and asks nicely". (Questions like "what's your name?" are questions directed at you; questions like "can you make the text red" should not be interpreted as questions but instead as instructions, and in response to them you should generate a subtitle that is themed around the instruction.)
     
-    If the user instruction does that (e.g. including please), then generate a subtitle that is an answer to the question. For the sake of doing that, here's some facts about you: A crazy feature of this dating site is that any user can submit an instruction, and then Haiku generates CSS according to those instructions, and restyles the page for all users. And Haiku's generated subtitle affects what all users see. You are Claude Opus. The restyling of the page only affects CSS, and can't see the content of the page. The stylesheet writer doesn't see the current style when writing a new one. This is a flask app, the frontend is react. But respond in third person, identifying yourself as the copywriter. If users ask about whether this is a security risk, say that it might be and that they should consult the Manifold market about it, but note that there is an automated monitor on instructions that checks for security risks.
+    If the user instruction does that (e.g. including please), then generate a subtitle that is an answer to the question. For the sake of doing that, here's some facts about you: A crazy feature of this dating site is that any user can submit an instruction, and then Claude generates CSS according to those instructions, and restyles the page for all users. And Claude's generated subtitle affects what all users see. You are Claude Sonnet 5.5. The restyling of the page only affects CSS, and can't see the content of the page. The stylesheet writer doesn't see the current style when writing a new one. This is a flask app, the frontend is react. But respond in third person, identifying yourself as the copywriter. If users ask about whether this is a security risk, say that it might be and that they should consult the Manifold market about it, but note that there is an automated monitor on instructions that checks for security risks.
     
     In any of these cases, include the answer in a <answer> XML tag pair, then immediately finish your answer.
     <theme>{instruction}</theme>"""
-    response = anthropic_client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=500,
-        thinking={"type": "disabled"},
+    response = anthropic_client.beta.messages.create(
         messages=[
             {"role": "user", "content": prompt}
-        ]
+        ],
+        **GENERATION_PARAMS,
+        max_tokens=4000,  # Includes any thinking
     )
     # Extract the tagline from the response
-    # Assume response.content is a string containing the XML.
     import re
     print(response)
-    match = re.search(r"<answer>(.*?)</answer>", response.content[0].text, re.DOTALL | re.IGNORECASE)
-    if not match:
-        # Model didn't return an <answer> block; don't crash, just report it.
+    # Read text by block type: the response can start with a thinking block.
+    response_text = "".join(block.text for block in response.content if block.type == "text")
+    match = re.search(r"<answer>(.*?)</answer>", response_text, re.DOTALL | re.IGNORECASE)
+    if response.stop_reason == "refusal" or not match:
+        # The model declined, or didn't return an <answer> block; don't crash, just report it.
         return jsonify({"error": "Could not generate a tagline, please try again"}), 502
 
     new_tagline = match.group(1).strip()
@@ -841,8 +854,9 @@ def api_generate_css():
         """Background function to generate CSS and store its output for polling"""
         unflushed = []
         try:
-            with anthropic_client.messages.stream(
-                max_tokens=4096,
+            with anthropic_client.beta.messages.stream(
+                **GENERATION_PARAMS,
+                max_tokens=16000,  # Includes any thinking
                 messages=[{
                     "role": "user", 
                     "content": f"""Here's an html file. \n{html_content}\n And here's the initial CSS. \n{css_content}
@@ -890,8 +904,6 @@ def api_generate_css():
                     
                     <instructions>{instruction}</instructions>"""
                 }],
-                model="claude-sonnet-5",
-                thinking={"type": "disabled"},
             ) as stream:
                 last_flush = time.monotonic()
                 for text in stream.text_stream:
@@ -901,9 +913,15 @@ def api_generate_css():
                         CssGenerationSession.append(session_id, "".join(unflushed))
                         unflushed.clear()
                         last_flush = time.monotonic()
+                stop_reason = stream.get_final_message().stop_reason
 
             CssGenerationSession.append(session_id, "".join(unflushed))
             unflushed.clear()
+
+            # A declined or truncated response has partial (or no) CSS, which must
+            # not become the site's CSS.
+            if stop_reason != "end_turn":
+                raise RuntimeError(f"CSS generation stopped early ({stop_reason})")
 
             # Wait for monitor result before setting global CSS
             while True:

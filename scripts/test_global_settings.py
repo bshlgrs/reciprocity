@@ -291,6 +291,40 @@ Session.finish("not a session")
 ses.remove()
 check("output for a session that's gone is ignored", poll("not a session").status_code == 404)
 
+# --- Model requests ----------------------------------------------------------
+
+fake = stubbed_app.fake_messages
+fake.calls.clear()
+r = client.post("/api/generate_tagline", json={"instruction": "y"}, headers=auth)
+tagline_call = fake.calls[-1]
+check("tagline uses the current Sonnet", tagline_call.get("model") == "claude-sonnet-5-5", tagline_call.get("model"))
+check("tagline sends no thinking or sampling settings the model rejects",
+      "thinking" not in tagline_call and "temperature" not in tagline_call, sorted(tagline_call))
+check("tagline opts into refusal fallbacks",
+      tagline_call.get("fallbacks") == "default" and tagline_call.get("betas") == ["server-side-fallback-2026-07-01"])
+
+fake.stop_reason = "refusal"
+r = client.post("/api/generate_tagline", json={"instruction": "z"}, headers=auth)
+check("a declined tagline is an error", r.status_code == 502, r.status_code)
+check("a declined tagline isn't applied", client.get("/api/get_tagline").text == "generated tagline")
+
+css_before = client.get("/api/global_css.css").text
+session_id = client.post("/api/generate_css", json={"instruction": "declined"}, headers=auth).json["session_id"]
+polled = {}
+for _ in range(200):
+    polled = poll(session_id).json
+    if polled["done"]:
+        break
+    time.sleep(0.05)
+fake.stop_reason = "end_turn"
+check("declined CSS is reported as an error", polled.get("error") == "CSS generation stopped early (refusal)", polled)
+check("declined CSS isn't applied, even with the monitor approving",
+      client.get("/api/global_css.css").text == css_before)
+css_call = fake.calls[-1]
+check("CSS generation uses the current Sonnet", css_call.get("model") == "claude-sonnet-5-5", css_call.get("model"))
+check("CSS generation sends no thinking or sampling settings the model rejects",
+      "thinking" not in css_call and "temperature" not in css_call, sorted(css_call))
+
 # --- /api/info must not copy the global CSS onto the user's row ----------------
 
 fake_fb = {"id": "settings_test_user", "name": "Settings Tester",
